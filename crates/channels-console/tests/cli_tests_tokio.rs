@@ -154,7 +154,9 @@ pub mod tests {
     }
 
     #[test]
-    fn test_metrics_endpoint() {
+    fn test_data_endpoints() {
+        use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
+        use channels_console::SerializableChannelStats;
         use std::{process::Command, thread::sleep, time::Duration};
 
         // Spawn example process
@@ -174,6 +176,7 @@ pub mod tests {
         let mut json_text = String::new();
         let mut last_error = None;
 
+        // Test /metrics endpoint
         for _attempt in 0..4 {
             sleep(Duration::from_millis(500));
 
@@ -201,6 +204,25 @@ pub mod tests {
             assert!(
                 json_text.contains(expected),
                 "Expected:\n{expected}\n\nGot:\n{json_text}",
+            );
+        }
+
+        // Test /logs/:id endpoint
+        let metrics: Vec<SerializableChannelStats> =
+            serde_json::from_str(&json_text).expect("Failed to parse metrics JSON");
+
+        if let Some(first_channel) = metrics.first() {
+            let encoded_id = URL_SAFE_NO_PAD.encode(first_channel.id.as_bytes());
+
+            let logs_url = format!("http://127.0.0.1:6770/logs/{}", encoded_id);
+            let response = ureq::get(&logs_url)
+                .call()
+                .expect("Failed to call /logs/:id endpoint");
+
+            assert_eq!(
+                response.status(),
+                200,
+                "Expected status 200 for /logs/:id endpoint"
             );
         }
 

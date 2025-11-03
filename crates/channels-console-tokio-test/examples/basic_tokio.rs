@@ -7,7 +7,7 @@ async fn main() {
     let (txa, mut _rxa) = tokio::sync::mpsc::unbounded_channel::<i32>();
 
     #[cfg(feature = "channels-console")]
-    let (txa, _rxa) = channels_console::instrument!((txa, _rxa));
+    let (txa, _rxa) = channels_console::instrument!((txa, _rxa), log = true);
 
     let (txb, mut rxb) = tokio::sync::mpsc::channel::<i32>(10);
     #[cfg(feature = "channels-console")]

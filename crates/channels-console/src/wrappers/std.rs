@@ -60,14 +60,16 @@ where
             // Try to receive with timeout to periodically check close signal
             match to_inner_rx.recv_timeout(std::time::Duration::from_millis(10)) {
                 Ok(msg) => {
-                    if let Some(msg_log) = log_on_send(&msg) {
-                        // eprintln!("[{}] SEND: {}", channel_id, msg_log);
-                    }
+                    let log = log_on_send(&msg);
                     if inner_tx.send(msg).is_err() {
                         // Inner receiver dropped
                         break;
                     }
-                    let _ = stats_tx_send.send(StatsEvent::MessageSent { id: channel_id });
+                    let _ = stats_tx_send.send(StatsEvent::MessageSent {
+                        id: channel_id,
+                        log,
+                        timestamp: std::time::SystemTime::now(),
+                    });
                 }
                 Err(mpsc::RecvTimeoutError::Timeout) => {
                     // No message, loop again to check close signal
@@ -86,15 +88,17 @@ where
     // Forward inner -> outer (proxy the recv path)
     std::thread::spawn(move || {
         while let Ok(msg) = inner_rx.recv() {
-            if let Some(msg_log) = log_on_recv(&msg) {
-                // eprintln!("[{}] RECV: {}", channel_id, msg_log);
-            }
+            let log = log_on_recv(&msg);
             if from_inner_tx.send(msg).is_err() {
                 // Outer receiver was closed
                 let _ = close_signal_tx.send(());
                 break;
             }
-            let _ = stats_tx_recv.send(StatsEvent::MessageReceived { id: channel_id });
+            let _ = stats_tx_recv.send(StatsEvent::MessageReceived {
+                id: channel_id,
+                log,
+                timestamp: std::time::SystemTime::now(),
+            });
         }
         // Channel is closed (either inner sender dropped or outer receiver closed)
         let _ = stats_tx_recv.send(StatsEvent::Closed { id: channel_id });
@@ -187,14 +191,16 @@ where
             // Try to receive with timeout to periodically check close signal
             match to_inner_rx.recv_timeout(std::time::Duration::from_millis(10)) {
                 Ok(msg) => {
-                    if let Some(msg_log) = log_on_send(&msg) {
-                        // eprintln!("[{}] SEND: {}", channel_id, msg_log);
-                    }
+                    let log = log_on_send(&msg);
                     if inner_tx.send(msg).is_err() {
                         // Inner receiver dropped
                         break;
                     }
-                    let _ = stats_tx_send.send(StatsEvent::MessageSent { id: channel_id });
+                    let _ = stats_tx_send.send(StatsEvent::MessageSent {
+                        id: channel_id,
+                        log,
+                        timestamp: std::time::SystemTime::now(),
+                    });
                 }
                 Err(mpsc::RecvTimeoutError::Timeout) => {
                     // No message, loop again to check close signal
@@ -213,15 +219,17 @@ where
     // Forward inner -> outer (proxy the recv path)
     std::thread::spawn(move || {
         while let Ok(msg) = inner_rx.recv() {
-            if let Some(msg_log) = log_on_recv(&msg) {
-                // eprintln!("[{}] RECV: {}", channel_id, msg_log);
-            }
+            let log = log_on_recv(&msg);
             if from_inner_tx.send(msg).is_err() {
                 // Outer receiver was closed
                 let _ = close_signal_tx.send(());
                 break;
             }
-            let _ = stats_tx_recv.send(StatsEvent::MessageReceived { id: channel_id });
+            let _ = stats_tx_recv.send(StatsEvent::MessageReceived {
+                id: channel_id,
+                log,
+                timestamp: std::time::SystemTime::now(),
+            });
         }
         // Channel is closed (either inner sender dropped or outer receiver closed)
         let _ = stats_tx_recv.send(StatsEvent::Closed { id: channel_id });

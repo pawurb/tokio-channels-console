@@ -1,7 +1,8 @@
 use crossbeam_channel::{unbounded, Sender as CbSender};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, OnceLock, RwLock};
+use std::time::SystemTime;
 
 pub mod channels_guard;
 pub use channels_guard::{ChannelsGuard, ChannelsGuardBuilder};
@@ -9,6 +10,13 @@ pub use channels_guard::{ChannelsGuard, ChannelsGuardBuilder};
 use crate::http_api::start_metrics_server;
 mod http_api;
 mod wrappers;
+
+/// A single log entry for a message sent or received.
+#[derive(Debug, Clone)]
+pub(crate) struct LogEntry {
+    pub(crate) timestamp: SystemTime,
+    pub(crate) message: Option<String>,
+}
 
 /// Type of a channel.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -134,6 +142,8 @@ pub(crate) struct ChannelStats {
     pub(crate) received_count: u64,
     pub(crate) type_name: &'static str,
     pub(crate) type_size: usize,
+    pub(crate) sent_logs: VecDeque<LogEntry>,
+    pub(crate) received_logs: VecDeque<LogEntry>,
 }
 
 impl ChannelStats {
@@ -147,6 +157,27 @@ impl ChannelStats {
 
     pub fn queued_bytes(&self) -> u64 {
         self.queued() * self.type_size as u64
+    }
+}
+
+/// Serializable version of a log entry for JSON responses.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SerializableLogEntry {
+    pub timestamp: u64,
+    pub message: Option<String>,
+}
+
+impl From<&LogEntry> for SerializableLogEntry {
+    fn from(entry: &LogEntry) -> Self {
+        let timestamp = entry
+            .timestamp
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+        Self {
+            timestamp,
+            message: entry.message.clone(),
+        }
     }
 }
 
@@ -202,6 +233,8 @@ impl ChannelStats {
             received_count: 0,
             type_name,
             type_size,
+            sent_logs: VecDeque::new(),
+            received_logs: VecDeque::new(),
         }
     }
 
@@ -232,9 +265,13 @@ pub(crate) enum StatsEvent {
     },
     MessageSent {
         id: &'static str,
+        log: Option<String>,
+        timestamp: SystemTime,
     },
     MessageReceived {
         id: &'static str,
+        log: Option<String>,
+        timestamp: SystemTime,
     },
     Closed {
         id: &'static str,
@@ -252,6 +289,15 @@ type StatsState = (
 
 /// Global state for statistics collection.
 static STATS_STATE: OnceLock<StatsState> = OnceLock::new();
+
+const DEFAULT_LOG_LIMIT: usize = 100;
+
+fn get_log_limit() -> usize {
+    std::env::var("CHANNELS_CONSOLE_LOG_LIMIT")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(DEFAULT_LOG_LIMIT)
+}
 
 /// Initialize the statistics collection system (called on first instrumented channel).
 /// Returns a reference to the global state.
@@ -285,16 +331,35 @@ fn init_stats_state() -> &'static StatsState {
                                 ),
                             );
                         }
-                        StatsEvent::MessageSent { id } => {
+                        StatsEvent::MessageSent { id, log, timestamp } => {
                             if let Some(channel_stats) = stats.get_mut(id) {
                                 channel_stats.sent_count += 1;
                                 channel_stats.update_state();
+
+                                let limit = get_log_limit();
+                                if channel_stats.sent_logs.len() >= limit {
+                                    channel_stats.sent_logs.pop_front();
+                                }
+                                channel_stats.sent_logs.push_back(LogEntry {
+                                    timestamp,
+                                    message: log,
+                                });
                             }
                         }
-                        StatsEvent::MessageReceived { id } => {
+                        StatsEvent::MessageReceived { id, log, timestamp } => {
                             if let Some(channel_stats) = stats.get_mut(id) {
                                 channel_stats.received_count += 1;
                                 channel_stats.update_state();
+
+                                // Store log entry
+                                let limit = get_log_limit();
+                                if channel_stats.received_logs.len() >= limit {
+                                    channel_stats.received_logs.pop_front();
+                                }
+                                channel_stats.received_logs.push_back(LogEntry {
+                                    timestamp,
+                                    message: log,
+                                });
                             }
                         }
                         StatsEvent::Closed { id } => {
@@ -581,4 +646,29 @@ fn get_serializable_stats() -> Vec<SerializableChannelStats> {
 
     stats.sort_by(|a, b| a.id.cmp(&b.id));
     stats
+}
+
+/// Serializable log response containing both sent and received logs.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChannelLogs {
+    pub id: String,
+    pub sent_logs: Vec<SerializableLogEntry>,
+    pub received_logs: Vec<SerializableLogEntry>,
+}
+
+pub(crate) fn get_channel_logs(channel_id: &str) -> Option<ChannelLogs> {
+    let stats = get_channel_stats();
+    stats.get(channel_id).map(|channel_stats| ChannelLogs {
+        id: channel_id.to_string(),
+        sent_logs: channel_stats
+            .sent_logs
+            .iter()
+            .map(SerializableLogEntry::from)
+            .collect(),
+        received_logs: channel_stats
+            .received_logs
+            .iter()
+            .map(SerializableLogEntry::from)
+            .collect(),
+    })
 }

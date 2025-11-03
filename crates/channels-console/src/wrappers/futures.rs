@@ -50,14 +50,16 @@ where
                 msg = to_inner_rx.next() => {
                     match msg {
                         Some(msg) => {
-                            if let Some(msg_log) = get_msg_log_send(&msg) {
-                                // eprintln!("[{}] SEND: {}", channel_id, msg_log);
-                            }
+                            let log = get_msg_log_send(&msg);
                             if inner_tx.try_send(msg).is_err() {
                                 to_inner_rx.close();
                                 break;
                             }
-                            let _ = stats_tx_send.send(StatsEvent::MessageSent { id: channel_id });
+                            let _ = stats_tx_send.send(StatsEvent::MessageSent {
+                                id: channel_id,
+                                log,
+                                timestamp: std::time::SystemTime::now(),
+                            });
                         }
                         None => break, // Outer sender dropped
                     }
@@ -79,11 +81,13 @@ where
     RT.spawn(async move {
         use futures_util::stream::StreamExt;
         while let Some(msg) = inner_rx.next().await {
-            if let Some(msg_log) = get_msg_log_recv(&msg) {
-                // eprintln!("[{}] RECV: {}", channel_id, msg_log);
-            }
+            let log = get_msg_log_recv(&msg);
             if from_inner_tx.try_send(msg).is_ok() {
-                let _ = stats_tx_recv.send(StatsEvent::MessageReceived { id: channel_id });
+                let _ = stats_tx_recv.send(StatsEvent::MessageReceived {
+                    id: channel_id,
+                    log,
+                    timestamp: std::time::SystemTime::now(),
+                });
             } else {
                 // Outer receiver was closed
                 let _ = close_signal_tx.send(());
@@ -163,14 +167,16 @@ where
                 msg = to_inner_rx.next() => {
                     match msg {
                         Some(msg) => {
-                            if let Some(msg_log) = get_msg_log_send(&msg) {
-                                // eprintln!("[{}] SEND: {}", channel_id, msg_log);
-                            }
+                            let log = get_msg_log_send(&msg);
                             if inner_tx.unbounded_send(msg).is_err() {
                                 to_inner_rx.close();
                                 break;
                             }
-                            let _ = stats_tx_send.send(StatsEvent::MessageSent { id: channel_id });
+                            let _ = stats_tx_send.send(StatsEvent::MessageSent {
+                                id: channel_id,
+                                log,
+                                timestamp: std::time::SystemTime::now(),
+                            });
                         }
                         None => break, // Outer sender dropped
                     }
@@ -192,11 +198,13 @@ where
     RT.spawn(async move {
         use futures_util::stream::StreamExt;
         while let Some(msg) = inner_rx.next().await {
-            if let Some(msg_log) = get_msg_log_recv(&msg) {
-                // eprintln!("[{}] RECV: {}", channel_id, msg_log);
-            }
+            let log = get_msg_log_recv(&msg);
             if from_inner_tx.unbounded_send(msg).is_ok() {
-                let _ = stats_tx_recv.send(StatsEvent::MessageReceived { id: channel_id });
+                let _ = stats_tx_recv.send(StatsEvent::MessageReceived {
+                    id: channel_id,
+                    log,
+                    timestamp: std::time::SystemTime::now(),
+                });
             } else {
                 // Outer receiver was closed
                 let _ = close_signal_tx.send(());
@@ -272,11 +280,13 @@ where
                 // Message received from inner
                 match msg {
                     Ok(msg) => {
-                        if let Some(msg_log) = get_msg_log_recv(&msg) {
-                            // eprintln!("[{}] RECV: {}", channel_id, msg_log);
-                        }
+                        let log = get_msg_log_recv(&msg);
                         if inner_tx_proxy.send(msg).is_ok() {
-                            let _ = stats_tx_recv.send(StatsEvent::MessageReceived { id: channel_id });
+                            let _ = stats_tx_recv.send(StatsEvent::MessageReceived {
+                                id: channel_id,
+                                log,
+                                timestamp: std::time::SystemTime::now(),
+                            });
                             message_received = true;
                         }
                     }
@@ -314,11 +324,13 @@ where
             msg = outer_rx_proxy => {
                 match msg {
                     Ok(msg) => {
-                        if let Some(msg_log) = get_msg_log_send(&msg) {
-                            // eprintln!("[{}] SEND: {}", channel_id, msg_log);
-                        }
+                        let log = get_msg_log_send(&msg);
                         if inner_tx.send(msg).is_ok() {
-                            let _ = stats_tx_send.send(StatsEvent::MessageSent { id: channel_id });
+                            let _ = stats_tx_send.send(StatsEvent::MessageSent {
+                                id: channel_id,
+                                log,
+                                timestamp: std::time::SystemTime::now(),
+                            });
                             let _ = stats_tx_send.send(StatsEvent::Notified { id: channel_id });
                             message_sent = true;
                         }
