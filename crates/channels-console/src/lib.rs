@@ -2,7 +2,7 @@ use crossbeam_channel::{unbounded, Sender as CbSender};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, OnceLock, RwLock};
-use std::time::SystemTime;
+use std::time::Instant;
 
 pub mod channels_guard;
 pub use channels_guard::{ChannelsGuard, ChannelsGuardBuilder};
@@ -20,14 +20,12 @@ pub struct LogEntry {
 }
 
 impl LogEntry {
-    pub(crate) fn new(index: u64, timestamp: SystemTime, message: Option<String>) -> Self {
-        let timestamp_secs = timestamp
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs();
+    pub(crate) fn new(index: u64, timestamp: Instant, message: Option<String>) -> Self {
+        let start_time = START_TIME.get().copied().unwrap_or(timestamp);
+        let timestamp_nanos = timestamp.duration_since(start_time).as_nanos() as u64;
         Self {
             index,
-            timestamp: timestamp_secs,
+            timestamp: timestamp_nanos,
             message,
         }
     }
@@ -260,11 +258,11 @@ pub(crate) enum StatsEvent {
     MessageSent {
         id: &'static str,
         log: Option<String>,
-        timestamp: SystemTime,
+        timestamp: Instant,
     },
     MessageReceived {
         id: &'static str,
-        timestamp: SystemTime,
+        timestamp: Instant,
     },
     Closed {
         id: &'static str,
@@ -283,6 +281,8 @@ type StatsState = (
 /// Global state for statistics collection.
 static STATS_STATE: OnceLock<StatsState> = OnceLock::new();
 
+static START_TIME: OnceLock<Instant> = OnceLock::new();
+
 const DEFAULT_LOG_LIMIT: usize = 50;
 
 fn get_log_limit() -> usize {
@@ -296,6 +296,8 @@ fn get_log_limit() -> usize {
 /// Returns a reference to the global state.
 fn init_stats_state() -> &'static StatsState {
     STATS_STATE.get_or_init(|| {
+        START_TIME.get_or_init(Instant::now);
+
         let (tx, rx) = unbounded::<StatsEvent>();
         let stats_map = Arc::new(RwLock::new(HashMap::<&'static str, ChannelStats>::new()));
         let stats_map_clone = Arc::clone(&stats_map);

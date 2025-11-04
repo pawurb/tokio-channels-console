@@ -55,7 +55,7 @@ where
                             let _ = stats_tx_send.send(StatsEvent::MessageSent {
                                 id: channel_id,
                                 log,
-                                timestamp: std::time::SystemTime::now(),
+                                timestamp: std::time::Instant::now(),
                             });
                         }
                         None => break, // Outer sender dropped
@@ -82,7 +82,7 @@ where
                             if from_inner_tx.send(msg).await.is_ok() {
                                 let _ = stats_tx_recv.send(StatsEvent::MessageReceived {
                                     id: channel_id,
-                                    timestamp: std::time::SystemTime::now(),
+                                    timestamp: std::time::Instant::now(),
                                 });
                             } else {
                                 let _ = close_signal_tx.send(());
@@ -173,7 +173,7 @@ where
                             let _ = stats_tx_send.send(StatsEvent::MessageSent {
                                 id: channel_id,
                                 log,
-                                timestamp: std::time::SystemTime::now(),
+                                timestamp: std::time::Instant::now(),
                             });
                         }
                         None => break, // Outer sender dropped
@@ -200,7 +200,7 @@ where
                             if from_inner_tx.send(msg).is_ok() {
                                 let _ = stats_tx_recv.send(StatsEvent::MessageReceived {
                                     id: channel_id,
-                                    timestamp: std::time::SystemTime::now(),
+                                    timestamp: std::time::Instant::now(),
                                 });
                             } else {
                                 // Outer receiver was closed
@@ -288,7 +288,7 @@ where
                         if inner_tx_proxy.send(msg).is_ok() {
                             let _ = stats_tx_recv.send(StatsEvent::MessageReceived {
                                 id: channel_id,
-                                timestamp: std::time::SystemTime::now(),
+                                timestamp: std::time::Instant::now(),
                             });
                             message_received = true;
                         }
@@ -322,7 +322,7 @@ where
                             let _ = stats_tx_send.send(StatsEvent::MessageSent {
                                 id: channel_id,
                                 log,
-                                timestamp: std::time::SystemTime::now(),
+                                timestamp: std::time::Instant::now(),
                             });
                             let _ = stats_tx_send.send(StatsEvent::Notified { id: channel_id });
                             message_sent = true;

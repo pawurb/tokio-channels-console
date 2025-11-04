@@ -66,7 +66,7 @@ where
                     let _ = stats_tx_send.send(StatsEvent::MessageSent {
                         id: channel_id,
                         log,
-                        timestamp: std::time::SystemTime::now(),
+                        timestamp: std::time::Instant::now(),
                     });
                 }
                 Err(mpsc::RecvTimeoutError::Timeout) => {
@@ -93,7 +93,7 @@ where
             }
             let _ = stats_tx_recv.send(StatsEvent::MessageReceived {
                 id: channel_id,
-                timestamp: std::time::SystemTime::now(),
+                timestamp: std::time::Instant::now(),
             });
         }
         // Channel is closed (either inner sender dropped or outer receiver closed)
@@ -188,7 +188,7 @@ where
                     let _ = stats_tx_send.send(StatsEvent::MessageSent {
                         id: channel_id,
                         log,
-                        timestamp: std::time::SystemTime::now(),
+                        timestamp: std::time::Instant::now(),
                     });
                 }
                 Err(mpsc::RecvTimeoutError::Timeout) => {
@@ -215,7 +215,7 @@ where
             }
             let _ = stats_tx_recv.send(StatsEvent::MessageReceived {
                 id: channel_id,
-                timestamp: std::time::SystemTime::now(),
+                timestamp: std::time::Instant::now(),
             });
         }
         // Channel is closed (either inner sender dropped or outer receiver closed)

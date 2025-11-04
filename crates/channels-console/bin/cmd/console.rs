@@ -15,7 +15,7 @@ use ratatui::{
     DefaultTerminal, Frame,
 };
 use std::io;
-use std::time::{Duration, Instant, SystemTime};
+use std::time::{Duration, Instant};
 
 #[derive(Debug, Parser)]
 pub struct ConsoleArgs {
@@ -34,7 +34,7 @@ pub struct App {
     error: Option<String>,
     exit: bool,
     last_refresh: Instant,
-    last_successful_fetch: Option<SystemTime>,
+    last_successful_fetch: Option<Instant>,
     metrics_port: u16,
     last_render_duration: Duration,
     selected_index: usize,
@@ -154,7 +154,7 @@ impl App {
             Ok(stats) => {
                 self.stats = stats;
                 self.error = None;
-                self.last_successful_fetch = Some(SystemTime::now());
+                self.last_successful_fetch = Some(Instant::now());
 
                 if self.selected_index >= self.stats.len() && !self.stats.is_empty() {
                     self.selected_index = self.stats.len() - 1;
@@ -278,9 +278,7 @@ impl Widget for &App {
         let refresh_status = if self.paused {
             "⏸ PAUSED ".to_string()
         } else if let Some(last_fetch) = self.last_successful_fetch {
-            let elapsed = SystemTime::now()
-                .duration_since(last_fetch)
-                .unwrap_or(Duration::from_secs(0));
+            let elapsed = Instant::now().duration_since(last_fetch);
             let seconds = elapsed.as_secs();
 
             let is_stale = self.error.is_some() && !self.stats.is_empty();
@@ -577,20 +575,18 @@ fn render_logs_panel(cached_logs: &CachedLogs, channel_label: &str, area: Rect, 
         .sent_logs
         .iter()
         .map(|entry| {
-            let timestamp = chrono::DateTime::from_timestamp(entry.timestamp as i64, 0)
-                .map(|dt| {
-                    let local: chrono::DateTime<chrono::Local> = dt.into();
-                    local.format("%H:%M:%S").to_string()
-                })
-                .unwrap_or_else(|| "??:??:??".to_string());
+            let total_secs = entry.timestamp / 1_000_000_000;
+            let millis = (entry.timestamp % 1_000_000_000) / 1_000_000;
+            let minutes = (total_secs % 3600) / 60;
+            let seconds = total_secs % 60;
+            let timestamp = format!("{:02}:{:02}.{:03}", minutes, seconds, millis);
 
             let msg = entry.message.as_deref().unwrap_or("");
             let truncated_msg = truncate_message(msg, msg_width);
 
             let delay_str = if let Some(received_entry) = received_map.get(&entry.index) {
                 if received_entry.timestamp >= entry.timestamp {
-                    let delay_seconds = received_entry.timestamp - entry.timestamp;
-                    let delay_ns = delay_seconds * 1_000_000_000;
+                    let delay_ns = received_entry.timestamp - entry.timestamp;
                     format_delay(delay_ns)
                 } else {
                     "⚠".to_string()
@@ -610,7 +606,7 @@ fn render_logs_panel(cached_logs: &CachedLogs, channel_label: &str, area: Rect, 
 
     let widths = [
         Constraint::Length(6),
-        Constraint::Length(10),
+        Constraint::Length(13), // MM:SS.mmm format
         Constraint::Min(20),
         Constraint::Length(12),
     ];
