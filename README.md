@@ -101,7 +101,7 @@ In the background a HTTP server process exposes gathered metrics in a JSON forma
 
 ### There be bugs 🐛
 
-This library has just been released. I've tested it with several apps, and it consistently produced reliable metrics. However, please note that enabling monitoring can subtly affect channel behavior in some cases. For example, using `try_send` may not return an error as expected, since the proxy layers effectively increase total capacity. I'm actively improving the library, so any feedback, issues, bug reports are welcome.
+This library has just been released. I've tested it with several apps, and it consistently produced reliable metrics. However, please note that enabling monitoring can subtly affect channel behavior in some cases. For example, using `try_send` may not return an error as expected, since the proxy layers effectively increase total capacity. I'm actively improving the library, so any feedback, issues, bug reports are appreciated.
 
 ## API
 
