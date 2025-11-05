@@ -161,7 +161,9 @@ pub(crate) struct ChannelStats {
 
 impl ChannelStats {
     pub fn queued(&self) -> u64 {
-        self.sent_count.saturating_sub(self.received_count)
+        self.sent_count
+            .saturating_sub(self.received_count)
+            .saturating_sub(1)
     }
 
     pub fn total_bytes(&self) -> u64 {

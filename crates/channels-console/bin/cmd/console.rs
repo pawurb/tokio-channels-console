@@ -113,7 +113,7 @@ fn usage_bar(queued: u64, channel_type: &ChannelType, width: usize) -> Cell<'sta
             let empty = width.saturating_sub(filled);
 
             let bar = format!("{}{}", "█".repeat(filled), "░".repeat(empty));
-            let text = format!("{} {:>3.0}%", bar, percentage);
+            let text = format!("{} [{}/{}]", bar, queued, cap);
 
             let color = if percentage >= 100.0 {
                 Color::Red
@@ -407,7 +407,7 @@ impl Widget for &App {
             Cell::from("Received"),
             Cell::from("Queued"),
             Cell::from("Mem"),
-            Cell::from("Usage"),
+            Cell::from("Queue"),
         ])
         .style(header_style)
         .height(1);
@@ -462,7 +462,7 @@ impl Widget for &App {
             Constraint::Percentage(8),  // Received
             Constraint::Percentage(7),  // Queued
             Constraint::Percentage(9),  // Mem
-            Constraint::Percentage(14), // Capacity
+            Constraint::Percentage(14), // Queue
         ];
 
         let table = Table::new(rows, widths)
