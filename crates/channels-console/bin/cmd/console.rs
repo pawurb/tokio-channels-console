@@ -432,8 +432,20 @@ impl Widget for &App {
                     }
                 };
 
+                // Add selection indicator for NO_COLOR support
+                let selection_prefix = if idx == self.selected_index {
+                    "> "
+                } else {
+                    "  "
+                };
+                let channel_label = format!(
+                    "{}{}",
+                    selection_prefix,
+                    truncate_left(&stat.label, channel_width.saturating_sub(2))
+                );
+
                 let mut row = Row::new(vec![
-                    Cell::from(truncate_left(&stat.label, channel_width)),
+                    Cell::from(channel_label),
                     Cell::from(stat.channel_type.to_string()),
                     Cell::from(state_text).style(state_style),
                     Cell::from(stat.sent_count.to_string()),
@@ -444,7 +456,6 @@ impl Widget for &App {
                     usage_bar(stat.queued, &stat.channel_type, 10),
                 ]);
 
-                // Highlight selected row
                 if idx == self.selected_index {
                     row = row.style(Style::default().bg(Color::DarkGray));
                 }
