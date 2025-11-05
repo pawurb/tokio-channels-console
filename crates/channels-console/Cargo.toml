@@ -1,6 +1,6 @@
 [package]
 name = "channels-console"
-version = "0.2.2"
+version = "0.2.3"
 edition = "2021"
 repository = "https://github.com/pawurb/channels-console"
 description = "Real-time monitoring, metrics and logs for Rust channels."
