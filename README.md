@@ -1,7 +1,7 @@
 # Real-time monitoring, metrics and logs for Rust channels
 [![Latest Version](https://img.shields.io/crates/v/channels-console.svg)](https://crates.io/crates/channels-console) [![GH Actions](https://github.com/pawurb/channels-console/actions/workflows/ci.yml/badge.svg)](https://github.com/pawurb/channels-console/actions)
 
-![Console TUI Example](channels-console-tui.gif)
+![Console TUI Example](channels-console-tui2.gif)
 
 A lightweight, easy-to-use tool for real-time visibility into your Rust channels. Track queue depth, processing delay, throughput, and memory usage. Instantly spot slow consumers, overloaded producers, or capacity issues.
 
@@ -64,7 +64,7 @@ In a different terminal run `channels-console` CLI to start the TUI and see live
 channels-console
 ```
 
-![Console Dashboard](console-dashboard4.png)
+![Console Dashboard](console-dashboard5.png)
 
 ### Quickstart demo guide
 
