@@ -9,7 +9,7 @@ use ratatui::{
     style::{Color, Modifier, Style, Stylize},
     symbols::border,
     text::{Line, Text},
-    widgets::{Block, Cell, HighlightSpacing, Row, Table, TableState},
+    widgets::{Block, Cell, Clear, HighlightSpacing, Row, Table, TableState},
     DefaultTerminal, Frame,
 };
 use std::io;
@@ -20,6 +20,12 @@ pub struct ConsoleArgs {
     /// Port for the metrics server
     #[arg(long, default_value = "6770")]
     pub metrics_port: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Focus {
+    Channels,
+    Logs,
 }
 
 struct CachedLogs {
@@ -36,9 +42,13 @@ pub struct App {
     metrics_port: u16,
     last_render_duration: Duration,
     table_state: TableState,
+    logs_table_state: TableState,
+    focus: Focus,
     show_logs: bool,
     logs: Option<CachedLogs>,
     paused: bool,
+    inspect_open: bool,
+    inspected_log: Option<LogEntry>,
     agent: ureq::Agent,
 }
 
@@ -58,9 +68,13 @@ impl ConsoleArgs {
             metrics_port: self.metrics_port,
             last_render_duration: Duration::from_millis(0),
             table_state: TableState::default().with_selected(0),
+            logs_table_state: TableState::default(),
+            focus: Focus::Channels,
             show_logs: false,
             logs: None,
             paused: false,
+            inspect_open: false,
+            inspected_log: None,
             agent,
         };
 
@@ -184,10 +198,34 @@ impl App {
     fn handle_key_event(&mut self, key_event: KeyEvent) {
         match key_event.code {
             KeyCode::Char('q') | KeyCode::Char('Q') => self.exit(),
-            KeyCode::Up | KeyCode::Char('k') => self.select_previous(),
-            KeyCode::Down | KeyCode::Char('j') => self.select_next(),
-            KeyCode::Char('l') | KeyCode::Char('L') => self.toggle_logs(),
+            KeyCode::Char('o') | KeyCode::Char('O') => {
+                if self.inspect_open {
+                    self.close_inspect_and_refocus_channels();
+                } else if self.focus == Focus::Logs {
+                    // Close logs view when focused on a log entry
+                    self.hide_logs();
+                } else {
+                    self.toggle_logs();
+                }
+            }
             KeyCode::Char('p') | KeyCode::Char('P') => self.toggle_pause(),
+            KeyCode::Left | KeyCode::Char('h') | KeyCode::Char('H') => {
+                if self.inspect_open {
+                    self.close_inspect_only();
+                } else {
+                    self.focus_channels();
+                }
+            }
+            KeyCode::Right | KeyCode::Char('l') => self.focus_logs(),
+            KeyCode::Char('i') | KeyCode::Char('I') => self.toggle_inspect(),
+            KeyCode::Up | KeyCode::Char('k') => match self.focus {
+                Focus::Channels => self.select_previous(),
+                Focus::Logs => self.select_previous_log(),
+            },
+            KeyCode::Down | KeyCode::Char('j') => match self.focus {
+                Focus::Channels => self.select_next(),
+                Focus::Logs => self.select_next_log(),
+            },
             _ => {}
         }
     }
@@ -248,6 +286,8 @@ impl App {
     fn hide_logs(&mut self) {
         self.show_logs = false;
         self.logs = None;
+        self.logs_table_state.select(None);
+        self.focus = Focus::Channels;
     }
 
     fn refresh_logs(&mut self) {
@@ -268,6 +308,16 @@ impl App {
                         .collect();
 
                     self.logs = Some(CachedLogs { logs, received_map });
+
+                    // Ensure logs table selection is valid
+                    if let Some(ref cached_logs) = self.logs {
+                        let log_count = cached_logs.logs.sent_logs.len();
+                        if let Some(selected) = self.logs_table_state.selected() {
+                            if selected >= log_count && log_count > 0 {
+                                self.logs_table_state.select(Some(log_count - 1));
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -275,6 +325,100 @@ impl App {
 
     fn toggle_pause(&mut self) {
         self.paused = !self.paused;
+    }
+
+    fn focus_channels(&mut self) {
+        self.focus = Focus::Channels;
+        // Clear logs table selection when not focused
+        self.logs_table_state.select(None);
+    }
+
+    fn focus_logs(&mut self) {
+        if self.show_logs && !self.stats.is_empty() {
+            // Only allow focus if there are actual logs to display
+            if let Some(ref cached_logs) = self.logs {
+                if !cached_logs.logs.sent_logs.is_empty() {
+                    self.focus = Focus::Logs;
+                    // Ensure logs table has a valid selection
+                    if self.logs_table_state.selected().is_none() {
+                        self.logs_table_state.select(Some(0));
+                    }
+                }
+            }
+        }
+    }
+
+    fn select_previous_log(&mut self) {
+        if let Some(ref cached_logs) = self.logs {
+            let log_count = cached_logs.logs.sent_logs.len();
+            if log_count > 0 {
+                let i = match self.logs_table_state.selected() {
+                    Some(i) => i.saturating_sub(1),
+                    None => 0,
+                };
+                self.logs_table_state.select(Some(i));
+
+                // Update inspected log if inspect popup is open
+                if self.inspect_open {
+                    if let Some(entry) = cached_logs.logs.sent_logs.get(i) {
+                        self.inspected_log = Some(entry.clone());
+                    }
+                }
+            }
+        }
+    }
+
+    fn select_next_log(&mut self) {
+        if let Some(ref cached_logs) = self.logs {
+            let log_count = cached_logs.logs.sent_logs.len();
+            if log_count > 0 {
+                let i = match self.logs_table_state.selected() {
+                    Some(i) => (i + 1).min(log_count - 1),
+                    None => 0,
+                };
+                self.logs_table_state.select(Some(i));
+
+                // Update inspected log if inspect popup is open
+                if self.inspect_open {
+                    if let Some(entry) = cached_logs.logs.sent_logs.get(i) {
+                        self.inspected_log = Some(entry.clone());
+                    }
+                }
+            }
+        }
+    }
+
+    fn toggle_inspect(&mut self) {
+        if self.focus == Focus::Logs && self.logs_table_state.selected().is_some() {
+            if self.inspect_open {
+                // Closing inspect popup
+                self.inspect_open = false;
+                self.inspected_log = None;
+            } else {
+                // Opening inspect popup - capture the current log entry
+                if let Some(selected) = self.logs_table_state.selected() {
+                    if let Some(ref cached_logs) = self.logs {
+                        if let Some(entry) = cached_logs.logs.sent_logs.get(selected) {
+                            self.inspected_log = Some(entry.clone());
+                            self.inspect_open = true;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    fn close_inspect_and_refocus_channels(&mut self) {
+        self.inspect_open = false;
+        self.inspected_log = None;
+        self.hide_logs();
+    }
+
+    fn close_inspect_only(&mut self) {
+        self.inspect_open = false;
+        self.inspected_log = None;
+        self.focus = Focus::Channels;
+        self.logs_table_state.select(None);
     }
 
     fn exit(&mut self) {
@@ -304,30 +448,61 @@ impl App {
             String::new()
         };
 
-        let bottom_line = if !refresh_status.is_empty() {
-            Line::from(vec![
-                " Quit ".into(),
-                "<Q> ".blue().bold(),
-                " | ".into(),
-                "<↑↓/jk> ".blue().bold(),
-                " | Logs ".into(),
-                "<L> ".blue().bold(),
-                " | Pause ".into(),
-                "<P> ".blue().bold(),
-                " | ".into(),
-                refresh_status.yellow(),
-            ])
-        } else {
-            Line::from(vec![
-                " Quit ".into(),
-                "<Q> ".blue().bold(),
-                " | ".into(),
-                "<↑↓/jk> ".blue().bold(),
-                " | Logs ".into(),
-                "<L> ".blue().bold(),
-                " | Pause ".into(),
-                "<P> ".blue().bold(),
-            ])
+        let bottom_line = match self.focus {
+            Focus::Channels => {
+                if !refresh_status.is_empty() {
+                    Line::from(vec![
+                        " Quit ".into(),
+                        "<q> ".blue().bold(),
+                        " | ".into(),
+                        "<↑↓←→/jkhl> ".blue().bold(),
+                        " | Logs ".into(),
+                        "<o> ".blue().bold(),
+                        " | Pause ".into(),
+                        "<p> ".blue().bold(),
+                        " | ".into(),
+                        refresh_status.yellow(),
+                    ])
+                } else {
+                    Line::from(vec![
+                        " Quit ".into(),
+                        "<q> ".blue().bold(),
+                        " | ".into(),
+                        "<↑↓←→/jkhl> ".blue().bold(),
+                        " | Logs ".into(),
+                        "<o> ".blue().bold(),
+                        " | Pause ".into(),
+                        "<p> ".blue().bold(),
+                    ])
+                }
+            }
+            Focus::Logs => {
+                if !refresh_status.is_empty() {
+                    Line::from(vec![
+                        " Quit ".into(),
+                        "<q> ".blue().bold(),
+                        " | ".into(),
+                        "<↑↓←→/jkhl> ".blue().bold(),
+                        " | Inspect ".into(),
+                        "<i> ".blue().bold(),
+                        " | Pause ".into(),
+                        "<p> ".blue().bold(),
+                        " | ".into(),
+                        refresh_status.yellow(),
+                    ])
+                } else {
+                    Line::from(vec![
+                        " Quit ".into(),
+                        "<q> ".blue().bold(),
+                        " | ".into(),
+                        "<↑↓←→/jkhl> ".blue().bold(),
+                        " | Inspect ".into(),
+                        "<i> ".blue().bold(),
+                        " | Pause ".into(),
+                        "<p> ".blue().bold(),
+                    ])
+                }
+            }
         };
 
         #[cfg(feature = "dev")]
@@ -394,15 +569,19 @@ impl App {
             return;
         }
 
-        // Split the area if logs are being shown
+        // Render the main block and get its inner area
+        let inner_area = block.inner(area);
+        frame.render_widget(block, area);
+
+        // Split the inner area if logs are being shown
         let (table_area, logs_area) = if self.show_logs {
             let chunks = Layout::default()
                 .direction(ratatui::layout::Direction::Horizontal)
                 .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
-                .split(area);
+                .split(inner_area);
             (chunks[0], Some(chunks[1]))
         } else {
-            (area, None)
+            (inner_area, None)
         };
 
         let available_width = table_area.width.saturating_sub(10);
@@ -448,7 +627,7 @@ impl App {
                     _ => Cell::from(format_bytes(stat.queued_bytes)),
                 };
 
-                Row::new(vec![
+                let row = Row::new(vec![
                     Cell::from(truncate_left(&stat.label, channel_width)),
                     Cell::from(stat.channel_type.to_string()),
                     Cell::from(state_text).style(state_style),
@@ -456,7 +635,14 @@ impl App {
                     Cell::from(stat.received_count.to_string()),
                     usage_bar(stat.queued, &stat.channel_type, 8),
                     mem_cell,
-                ])
+                ]);
+
+                // Dim the row if logs are shown and channels table is not focused
+                if self.show_logs && self.focus != Focus::Channels {
+                    row.style(Style::default().fg(Color::DarkGray))
+                } else {
+                    row
+                }
             })
             .collect();
 
@@ -474,9 +660,28 @@ impl App {
             .add_modifier(Modifier::REVERSED)
             .bg(Color::DarkGray);
 
+        // When logs are shown, create a separate block for the channels table
+        let table_block = if self.show_logs {
+            let border_set = if self.focus == Focus::Channels {
+                border::THICK
+            } else {
+                border::PLAIN
+            };
+            Block::bordered()
+                .title(" Channels ")
+                .border_set(border_set)
+                .style(if self.focus == Focus::Channels {
+                    Style::default()
+                } else {
+                    Style::default().fg(Color::DarkGray)
+                })
+        } else {
+            Block::new()
+        };
+
         let table = Table::new(rows, widths)
             .header(header)
-            .block(block)
+            .block(table_block)
             .column_spacing(1)
             .row_highlight_style(selected_row_style)
             .highlight_symbol(Text::from(">"))
@@ -510,7 +715,14 @@ impl App {
                 } else {
                     channel_label
                 };
-                render_logs_panel(cached_logs, &display_label, logs_area, frame);
+                render_logs_panel(
+                    cached_logs,
+                    &display_label,
+                    logs_area,
+                    frame,
+                    &mut self.logs_table_state,
+                    self.focus == Focus::Logs,
+                );
             } else {
                 let message = if self.paused {
                     "(refresh paused)"
@@ -520,6 +732,13 @@ impl App {
                     "(no data)"
                 };
                 render_logs_placeholder(&channel_label, message, logs_area, frame);
+            }
+        }
+
+        // Render inspect popup on top of everything if open
+        if self.inspect_open {
+            if let Some(ref inspected_log) = self.inspected_log {
+                render_inspect_popup(inspected_log, area, frame);
             }
         }
     }
@@ -565,10 +784,28 @@ fn render_logs_placeholder(channel_label: &str, message: &str, area: Rect, frame
     }
 }
 
-fn render_logs_panel(cached_logs: &CachedLogs, channel_label: &str, area: Rect, frame: &mut Frame) {
+fn render_logs_panel(
+    cached_logs: &CachedLogs,
+    channel_label: &str,
+    area: Rect,
+    frame: &mut Frame,
+    table_state: &mut TableState,
+    is_focused: bool,
+) {
+    let border_set = if is_focused {
+        border::THICK
+    } else {
+        border::PLAIN
+    };
+
     let block = Block::bordered()
         .title(format!(" {} ", channel_label))
-        .border_set(border::THICK);
+        .border_set(border_set)
+        .style(if is_focused {
+            Style::default()
+        } else {
+            Style::default().fg(Color::DarkGray)
+        });
 
     let inner_area = block.inner(area);
     frame.render_widget(block, area);
@@ -611,12 +848,19 @@ fn render_logs_panel(cached_logs: &CachedLogs, channel_label: &str, area: Rect, 
                 "queued".to_string()
             };
 
-            Row::new(vec![
+            let row = Row::new(vec![
                 entry.index.to_string(),
                 timestamp,
                 truncated_msg,
                 delay_str,
-            ])
+            ]);
+
+            // Dim the row if not focused
+            if !is_focused {
+                row.style(Style::default().fg(Color::DarkGray))
+            } else {
+                row
+            }
         })
         .collect();
 
@@ -627,9 +871,77 @@ fn render_logs_panel(cached_logs: &CachedLogs, channel_label: &str, area: Rect, 
         Constraint::Length(12),
     ];
 
+    let selected_row_style = Style::default()
+        .add_modifier(Modifier::REVERSED)
+        .bg(Color::DarkGray);
+
     let table = Table::new(rows, widths)
         .header(header)
-        .row_highlight_style(Style::default().fg(Color::Yellow));
+        .row_highlight_style(selected_row_style)
+        .highlight_symbol(Text::from(">"))
+        .highlight_spacing(HighlightSpacing::Always);
 
-    frame.render_widget(table, inner_area);
+    frame.render_stateful_widget(table, inner_area, table_state);
+}
+
+fn render_inspect_popup(entry: &LogEntry, area: Rect, frame: &mut Frame) {
+    // Center the popup at 80% of screen size
+    let popup_width = (area.width as f32 * 0.8) as u16;
+    let popup_height = (area.height as f32 * 0.8) as u16;
+    let x = (area.width.saturating_sub(popup_width)) / 2;
+    let y = (area.height.saturating_sub(popup_height)) / 2;
+
+    let popup_area = Rect {
+        x: area.x + x,
+        y: area.y + y,
+        width: popup_width,
+        height: popup_height,
+    };
+
+    let message = entry
+        .message
+        .as_deref()
+        .unwrap_or("(missing \"log = true\")");
+
+    // Clear the area to create a complete overlay
+    frame.render_widget(Clear, popup_area);
+
+    let block = Block::bordered()
+        .title(format!(" Log Message (Index: {}) ", entry.index))
+        .border_set(border::DOUBLE);
+
+    let inner_area = block.inner(popup_area);
+
+    // Render the block
+    frame.render_widget(block, popup_area);
+
+    // Wrap the message text to fit the popup width
+    let text_lines: Vec<Line> = message
+        .lines()
+        .flat_map(|line| {
+            let max_width = inner_area.width.saturating_sub(2) as usize;
+            if line.len() <= max_width {
+                vec![Line::from(line)]
+            } else {
+                // Wrap long lines
+                let mut wrapped = Vec::new();
+                let mut remaining = line;
+                while !remaining.is_empty() {
+                    let split_at = remaining
+                        .char_indices()
+                        .nth(max_width)
+                        .map(|(i, _)| i)
+                        .unwrap_or(remaining.len());
+                    wrapped.push(Line::from(&remaining[..split_at]));
+                    remaining = &remaining[split_at..];
+                }
+                wrapped
+            }
+        })
+        .collect();
+
+    let paragraph =
+        ratatui::widgets::Paragraph::new(text_lines).wrap(ratatui::widgets::Wrap { trim: false });
+
+    frame.render_widget(paragraph, inner_area);
 }

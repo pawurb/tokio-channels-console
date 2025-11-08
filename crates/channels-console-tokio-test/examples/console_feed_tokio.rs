@@ -20,6 +20,107 @@ impl UserData {
     }
 }
 
+#[allow(unused)]
+#[derive(Debug)]
+struct BigPayload {
+    request_id: String,
+    timestamp: u64,
+    user_id: u64,
+    session_id: String,
+    ip_address: String,
+    user_agent: String,
+    request_path: String,
+    request_method: String,
+    status_code: u16,
+    response_time_ms: u64,
+    bytes_sent: u64,
+    bytes_received: u64,
+    error_message: Option<String>,
+    metadata: String,
+    region: String,
+    datacenter: String,
+    server_instance: String,
+    client_version: String,
+    api_version: String,
+    correlation_id: String,
+    parent_request_id: Option<String>,
+}
+
+impl BigPayload {
+    fn random() -> Self {
+        let has_error = rand::random::<bool>();
+        Self {
+            request_id: format!("req_{:016x}", rand::random::<u64>()),
+            timestamp: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_millis() as u64,
+            user_id: rand::random(),
+            session_id: format!("sess_{:016x}", rand::random::<u64>()),
+            ip_address: format!(
+                "{}.{}.{}.{}",
+                rand::random::<u8>(),
+                rand::random::<u8>(),
+                rand::random::<u8>(),
+                rand::random::<u8>()
+            ),
+            user_agent: format!(
+                "Mozilla/5.0 (Platform) Browser/{}.{}.{}",
+                rand::random::<u8>() % 10,
+                rand::random::<u8>() % 20,
+                rand::random::<u16>() % 1000
+            ),
+            request_path: format!(
+                "/api/v1/resources/{}/items/{}",
+                rand::random::<u16>() % 100,
+                rand::random::<u32>()
+            ),
+            request_method: ["GET", "POST", "PUT", "DELETE", "PATCH"]
+                [(rand::random::<u8>() % 5) as usize]
+                .to_string(),
+            status_code: if has_error {
+                [400, 404, 500, 503][(rand::random::<u8>() % 4) as usize]
+            } else {
+                [200, 201, 204][(rand::random::<u8>() % 3) as usize]
+            },
+            response_time_ms: rand::random::<u64>() % 5000,
+            bytes_sent: rand::random::<u64>() % 1_000_000,
+            bytes_received: rand::random::<u64>() % 100_000,
+            error_message: if has_error {
+                Some(format!(
+                    "Error: Something went wrong with code {}",
+                    rand::random::<u16>()
+                ))
+            } else {
+                None
+            },
+            metadata: format!(
+                r#"{{"custom_field_1":"value_{}","custom_field_2":{},"tags":["tag1","tag2","tag3"]}}"#,
+                rand::random::<u32>(),
+                rand::random::<bool>()
+            ),
+            region: ["us-east-1", "us-west-2", "eu-west-1", "ap-southeast-1"]
+                [(rand::random::<u8>() % 4) as usize]
+                .to_string(),
+            datacenter: format!("dc-{}", rand::random::<u8>() % 10),
+            server_instance: format!("i-{:016x}", rand::random::<u64>()),
+            client_version: format!(
+                "{}.{}.{}",
+                rand::random::<u8>() % 5,
+                rand::random::<u8>() % 20,
+                rand::random::<u8>() % 100
+            ),
+            api_version: format!("v{}", rand::random::<u8>() % 5 + 1),
+            correlation_id: format!("corr_{:016x}", rand::random::<u64>()),
+            parent_request_id: if rand::random::<bool>() {
+                Some(format!("parent_req_{:016x}", rand::random::<u64>()))
+            } else {
+                None
+            },
+        }
+    }
+}
+
 #[allow(unused_mut)]
 #[tokio::main]
 async fn main() {
@@ -96,6 +197,15 @@ async fn main() {
     let (tx_oneshot_late, rx_oneshot_late) = channels_console::instrument!(
         (tx_oneshot_late, rx_oneshot_late),
         label = "oneshot-late",
+        log = true
+    );
+
+    // Channel 11: Big payload - bounded(10), sends large structured data
+    let (tx_big_payload, mut rx_big_payload) = tokio::sync::mpsc::channel::<BigPayload>(10);
+    #[cfg(feature = "channels-console")]
+    let (tx_big_payload, mut rx_big_payload) = channels_console::instrument!(
+        (tx_big_payload, rx_big_payload),
+        label = "big-payload",
         log = true
     );
 
@@ -301,6 +411,36 @@ async fn main() {
         sleep(Duration::from_secs(25)).await;
         println!("Firing oneshot-late at 25s");
         let _ = tx_oneshot_late.send(9000);
+    });
+
+    // === Task 17: Big payload producer (sends every 2 seconds) ===
+    tokio::spawn(async move {
+        for i in 0..30 {
+            let payload = BigPayload::random();
+            println!(
+                "Sending big payload #{}: {} to {}",
+                i, payload.request_method, payload.request_path
+            );
+            if tx_big_payload.send(payload).await.is_err() {
+                break;
+            }
+            sleep(Duration::from_secs(2)).await;
+        }
+    });
+
+    // === Task 18: Big payload consumer (processes every 1.5 seconds) ===
+    tokio::spawn(async move {
+        while let Some(payload) = rx_big_payload.recv().await {
+            println!(
+                "Processing big payload: {} {} [status: {}] from {} - {}ms",
+                payload.request_method,
+                payload.request_path,
+                payload.status_code,
+                payload.region,
+                payload.response_time_ms
+            );
+            sleep(Duration::from_millis(1500)).await;
+        }
     });
 
     let _progress_handle = tokio::spawn(async move {

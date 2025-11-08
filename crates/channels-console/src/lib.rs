@@ -169,10 +169,6 @@ impl ChannelStats {
             .saturating_sub(1)
     }
 
-    pub fn total_bytes(&self) -> u64 {
-        self.sent_count * self.type_size as u64
-    }
-
     pub fn queued_bytes(&self) -> u64 {
         self.queued() * self.type_size as u64
     }
@@ -192,7 +188,6 @@ pub struct SerializableChannelStats {
     pub queued: u64,
     pub type_name: String,
     pub type_size: usize,
-    pub total_bytes: u64,
     pub queued_bytes: u64,
     pub iter: u32,
 }
@@ -212,7 +207,6 @@ impl From<&ChannelStats> for SerializableChannelStats {
             queued: stats.queued(),
             type_name: stats.type_name.to_string(),
             type_size: stats.type_size,
-            total_bytes: stats.total_bytes(),
             queued_bytes: stats.queued_bytes(),
             iter: stats.iter,
         }
