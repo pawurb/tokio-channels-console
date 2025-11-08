@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.0] - 2025-11-08
+
+### 🚀 Features
+
+- Support looped channels
+- Add inspect msg view, and refactor TUI
+- Improve TUI layout
+- Configurable tui refresh rate
+- TUI UI fixes
+- Display dev render time
+
+### 🐛 Bug Fixes
+
+- Sort labeled channels on top
+- Fix sorting iter labels
+- Fix controls order
+
+### ⚙️ Miscellaneous Tasks
+
+- Add loadtest script
+- Release 0.3.0
+
 ## [0.2.3] - 2025-11-05
 
 ### 🐛 Bug Fixes
