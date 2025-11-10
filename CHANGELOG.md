@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.1] - 2025-11-10
+
+### 🚀 Features
+
+- Display timestamp on inspect view
+- Add crossbeam channels support
+
+### ⚙️ Miscellaneous Tasks
+
+- Release 0.3.1
+
 ## [0.3.0] - 2025-11-08
 
 ### 🚀 Features
