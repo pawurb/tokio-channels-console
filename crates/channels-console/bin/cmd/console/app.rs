@@ -43,10 +43,12 @@ pub(crate) struct App {
 
 impl ConsoleArgs {
     pub fn run(&self) -> Result<()> {
-        let agent = ureq::AgentBuilder::new()
-            .timeout_connect(Duration::from_millis(2000))
-            .timeout_read(Duration::from_millis(1500))
+        let config = ureq::Agent::config_builder()
+            .timeout_connect(Some(Duration::from_millis(2000)))
+            .timeout_recv_body(Some(Duration::from_millis(1500)))
             .build();
+
+        let agent: ureq::Agent = config.into();
 
         let mut app = App {
             stats: Vec::new(),

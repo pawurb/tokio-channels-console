@@ -22,7 +22,7 @@ crossterm = { version = "0.29", optional = true }
 ratatui = { version = "0.29", optional = true }
 clap = { version = "4.5", features = ["derive"], optional = true }
 colored = { version = "3", optional = true }
-ureq = { version = "2", features = ["json"], optional = true }
+ureq = { version = "3", features = ["json"], optional = true }
 chrono = { version = "0.4", optional = true }
 cfg-if = "1.0"
 
@@ -35,7 +35,7 @@ crossbeam = []
 dev = []
 
 [dev-dependencies]
-ureq = { version = "2", features = ["json"] }
+ureq = { version = "3", features = ["json"] }
 serde_json = "1.0"
 
 [[bin]]

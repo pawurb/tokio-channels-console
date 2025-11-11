@@ -180,9 +180,10 @@ pub mod tests {
             sleep(Duration::from_millis(500));
 
             match ureq::get("http://127.0.0.1:6770/metrics").call() {
-                Ok(response) => {
+                Ok(mut response) => {
                     json_text = response
-                        .into_string()
+                        .body_mut()
+                        .read_to_string()
                         .expect("Failed to read response body");
                     last_error = None;
                     break;
