@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.2] - 2025-11-14
+
+### 🐛 Bug Fixes
+
+- Futures backpressure fix [#12]
+
+### 🚜 Refactor
+
+- Remove state.rs
+
+### ⚙️ Miscellaneous Tasks
+
+- Update ureq dependency
+- Release 0.3.2
+
 ## [0.3.1] - 2025-11-10
 
 ### 🚀 Features
