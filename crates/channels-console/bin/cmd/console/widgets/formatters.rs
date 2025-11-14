@@ -74,3 +74,35 @@ pub(crate) fn format_timestamp(timestamp_ns: u64) -> String {
     let seconds = total_secs % 60;
     format!("{:02}:{:02}.{:03}", minutes, seconds, millis)
 }
+
+/// Formats a time difference in nanoseconds as "now", "1s ago", "1m ago", "1h ago", etc.
+pub(crate) fn format_time_ago(nanos_ago: u64) -> String {
+    const NANOS_PER_SEC: u64 = 1_000_000_000;
+    const NANOS_PER_MIN: u64 = 60 * NANOS_PER_SEC;
+    const NANOS_PER_HOUR: u64 = 60 * NANOS_PER_MIN;
+
+    if nanos_ago < NANOS_PER_SEC {
+        "now".to_string()
+    } else if nanos_ago < NANOS_PER_MIN {
+        let secs = nanos_ago / NANOS_PER_SEC;
+        if secs == 1 {
+            "1s ago".to_string()
+        } else {
+            format!("{}s ago", secs)
+        }
+    } else if nanos_ago < NANOS_PER_HOUR {
+        let mins = nanos_ago / NANOS_PER_MIN;
+        if mins == 1 {
+            "1m ago".to_string()
+        } else {
+            format!("{}m ago", mins)
+        }
+    } else {
+        let hours = nanos_ago / NANOS_PER_HOUR;
+        if hours == 1 {
+            "1h ago".to_string()
+        } else {
+            format!("{}h ago", hours)
+        }
+    }
+}

@@ -1,4 +1,4 @@
-use crate::{get_channel_logs, get_serializable_stats};
+use crate::{get_channel_logs, get_metrics_json};
 use serde::Serialize;
 use std::fmt::Display;
 use tiny_http::{Header, Request, Response, Server};
@@ -23,8 +23,8 @@ fn handle_request(request: Request) {
 
     match path {
         "/metrics" => {
-            let stats = get_serializable_stats();
-            respond_json(request, &stats);
+            let metrics = get_metrics_json();
+            respond_json(request, &metrics);
         }
         _ => {
             if let Some(id_str) = path.strip_prefix("/logs/") {

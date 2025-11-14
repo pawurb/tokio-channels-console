@@ -1,5 +1,5 @@
 use crate::cmd::console::app::CachedLogs;
-use crate::cmd::console::widgets::formatters::{format_delay, format_timestamp, truncate_message};
+use crate::cmd::console::widgets::formatters::{format_delay, format_time_ago, truncate_message};
 use ratatui::{
     layout::Rect,
     style::{Color, Modifier, Style},
@@ -42,6 +42,7 @@ pub(crate) fn render_logs_panel(
     frame: &mut Frame,
     table_state: &mut TableState,
     is_focused: bool,
+    current_elapsed_ns: u64,
 ) {
     let border_set = if is_focused {
         border::THICK
@@ -70,7 +71,7 @@ pub(crate) fn render_logs_panel(
         .fg(Color::Yellow)
         .add_modifier(Modifier::BOLD);
 
-    let header = Row::new(vec!["Index", "Timestamp", "Message", "Delay"])
+    let header = Row::new(vec!["Index", "Message", "Delay", "Ago"])
         .style(header_style)
         .height(1);
 
@@ -79,7 +80,7 @@ pub(crate) fn render_logs_panel(
         .sent_logs
         .iter()
         .map(|entry| {
-            let timestamp = format_timestamp(entry.timestamp);
+            let time_ago = format_time_ago(current_elapsed_ns.saturating_sub(entry.timestamp));
 
             let msg = entry.message.as_deref().unwrap_or("");
             let truncated_msg = truncate_message(msg, msg_width);
@@ -97,9 +98,9 @@ pub(crate) fn render_logs_panel(
 
             let row = Row::new(vec![
                 entry.index.to_string(),
-                timestamp,
                 truncated_msg,
                 delay_str,
+                time_ago,
             ]);
 
             if !is_focused {
@@ -111,10 +112,10 @@ pub(crate) fn render_logs_panel(
         .collect();
 
     let widths = [
-        ratatui::layout::Constraint::Length(6),
-        ratatui::layout::Constraint::Length(13), // MM:SS.mmm format
-        ratatui::layout::Constraint::Min(20),
-        ratatui::layout::Constraint::Length(12),
+        ratatui::layout::Constraint::Length(6),  // Index
+        ratatui::layout::Constraint::Min(20),    // Message
+        ratatui::layout::Constraint::Length(12), // Delay
+        ratatui::layout::Constraint::Length(13), // Ago
     ];
 
     let selected_row_style = Style::default()

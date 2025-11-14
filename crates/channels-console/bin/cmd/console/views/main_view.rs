@@ -29,6 +29,7 @@ pub fn render_main_view(
     logs: &Option<CachedLogs>,
     paused: bool,
     inspected_log: &Option<channels_console::LogEntry>,
+    current_elapsed_ns: u64,
 ) {
     if let Some(ref error_msg) = error {
         if stats.is_empty() {
@@ -125,6 +126,7 @@ pub fn render_main_view(
                 frame,
                 logs_table_state,
                 focus == Focus::Logs,
+                current_elapsed_ns,
             );
         } else {
             let message = if paused {

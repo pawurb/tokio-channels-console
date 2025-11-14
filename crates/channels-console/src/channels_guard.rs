@@ -2,9 +2,7 @@ use std::time::Instant;
 
 use prettytable::{Cell, Row, Table};
 
-use crate::{
-    format_bytes, get_serializable_stats, get_sorted_channel_stats, resolve_label, Format,
-};
+use crate::{format_bytes, get_metrics_json, get_sorted_channel_stats, resolve_label, Format};
 
 /// Builder for creating a ChannelsGuard with custom configuration.
 ///
@@ -163,15 +161,15 @@ impl Drop for ChannelsGuard {
                 table.printstd();
             }
             Format::Json => {
-                let serializable_stats = get_serializable_stats();
-                match serde_json::to_string(&serializable_stats) {
+                let metrics = get_metrics_json();
+                match serde_json::to_string(&metrics) {
                     Ok(json) => println!("{}", json),
                     Err(e) => eprintln!("Failed to serialize statistics to JSON: {}", e),
                 }
             }
             Format::JsonPretty => {
-                let serializable_stats = get_serializable_stats();
-                match serde_json::to_string_pretty(&serializable_stats) {
+                let metrics = get_metrics_json();
+                match serde_json::to_string_pretty(&metrics) {
                     Ok(json) => println!("{}", json),
                     Err(e) => eprintln!("Failed to serialize statistics to pretty JSON: {}", e),
                 }

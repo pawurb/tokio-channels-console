@@ -174,6 +174,15 @@ impl ChannelStats {
     }
 }
 
+/// Wrapper for metrics JSON response containing stats and current time
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MetricsJson {
+    /// Current elapsed time since program start in nanoseconds
+    pub current_elapsed_ns: u64,
+    /// Channel statistics
+    pub stats: Vec<SerializableChannelStats>,
+}
+
 /// Serializable version of channel statistics for JSON responses.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SerializableChannelStats {
@@ -195,6 +204,7 @@ pub struct SerializableChannelStats {
 impl From<&ChannelStats> for SerializableChannelStats {
     fn from(stats: &ChannelStats) -> Self {
         let label = resolve_label(stats.source, stats.label, stats.iter);
+
         Self {
             id: stats.id,
             source: stats.source.to_string(),
@@ -700,11 +710,22 @@ pub(crate) fn get_sorted_channel_stats() -> Vec<ChannelStats> {
     stats
 }
 
-fn get_serializable_stats() -> Vec<SerializableChannelStats> {
-    get_sorted_channel_stats()
+fn get_metrics_json() -> MetricsJson {
+    let stats = get_sorted_channel_stats()
         .iter()
         .map(SerializableChannelStats::from)
-        .collect()
+        .collect();
+
+    let current_elapsed_ns = START_TIME
+        .get()
+        .expect("START_TIME must be initialized")
+        .elapsed()
+        .as_nanos() as u64;
+
+    MetricsJson {
+        current_elapsed_ns,
+        stats,
+    }
 }
 
 /// Serializable log response containing sent and received logs.

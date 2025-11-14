@@ -52,6 +52,7 @@ pub(crate) struct App {
     paused: bool,
     inspected_log: Option<LogEntry>,
     agent: ureq::Agent,
+    current_elapsed_ns: u64,
 }
 
 impl ConsoleArgs {
@@ -79,6 +80,7 @@ impl ConsoleArgs {
             paused: false,
             inspected_log: None,
             agent,
+            current_elapsed_ns: 0,
         };
 
         let mut terminal = ratatui::init();
@@ -120,8 +122,9 @@ impl App {
             .map(|stat| stat.id);
 
         match fetch_metrics(&self.agent, self.metrics_port) {
-            Ok(stats) => {
-                self.stats = stats;
+            Ok(metrics) => {
+                self.current_elapsed_ns = metrics.current_elapsed_ns;
+                self.stats = metrics.stats;
                 self.error = None;
                 self.last_successful_fetch = Some(Instant::now());
 
@@ -429,6 +432,7 @@ impl App {
             &self.logs,
             self.paused,
             &self.inspected_log,
+            self.current_elapsed_ns,
         );
 
         render_bottom_bar(frame, chunks[2], self.focus, self.last_render_duration);

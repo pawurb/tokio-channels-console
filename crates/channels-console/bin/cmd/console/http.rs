@@ -1,14 +1,11 @@
-use channels_console::{ChannelLogs, SerializableChannelStats};
+use channels_console::{ChannelLogs, MetricsJson};
 use eyre::Result;
 
 /// Fetches channel metrics from the HTTP server
-pub(crate) fn fetch_metrics(
-    agent: &ureq::Agent,
-    port: u16,
-) -> Result<Vec<SerializableChannelStats>> {
+pub(crate) fn fetch_metrics(agent: &ureq::Agent, port: u16) -> Result<MetricsJson> {
     let url = format!("http://127.0.0.1:{}/metrics", port);
-    let stats: Vec<SerializableChannelStats> = agent.get(&url).call()?.body_mut().read_json()?;
-    Ok(stats)
+    let metrics: MetricsJson = agent.get(&url).call()?.body_mut().read_json()?;
+    Ok(metrics)
 }
 
 /// Fetches logs for a specific channel from the HTTP server
