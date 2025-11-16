@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.3] - 2025-11-16
+
+### 🚀 Features
+
+- Display time for channel messages
+- Accept expressions for labels in instrument macro (#15)
+
+### ⚙️ Miscellaneous Tasks
+
+- Release 0.3.3
+
 ## [0.3.2] - 2025-11-14
 
 ### 🐛 Bug Fixes
