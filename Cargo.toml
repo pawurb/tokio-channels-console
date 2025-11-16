@@ -9,4 +9,4 @@ members = [
 resolver = "2"
 
 [workspace.dependencies]
-channels-console = { path = "./crates/channels-console", version = "0.3.2" }
+channels-console = { path = "./crates/channels-console", version = "0.3.3" }
