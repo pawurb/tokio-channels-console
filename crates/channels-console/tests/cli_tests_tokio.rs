@@ -25,7 +25,8 @@ pub mod tests {
 
         assert!(!output.stderr.is_empty(), "Stderr is empty");
         let all_expected = [
-            "examples/basic_tokio.rs",
+            "Actor 1",
+            "bounded-channel",
             "hello-there",
             "unbounded",
             "bounded[10]",
@@ -198,7 +199,7 @@ pub mod tests {
             panic!("Failed after 4 retries: {}", error);
         }
 
-        let all_expected = ["basic_tokio.rs", "hello-there"];
+        let all_expected = ["Actor 1", "bounded-channel", "hello-there"];
         for expected in all_expected {
             assert!(
                 json_text.contains(expected),
@@ -251,15 +252,15 @@ pub mod tests {
         let stdout = String::from_utf8_lossy(&output.stdout);
 
         let all_expected = [
-            "bounded",
-            "bounded-2",
-            "bounded-3",
-            "examples/iter_tokio.rs:29",
-            "examples/iter_tokio.rs:29-2",
-            "examples/iter_tokio.rs:29-3",
-            "examples/iter_tokio.rs:44",
-            "examples/iter_tokio.rs:44-2",
-            "examples/iter_tokio.rs:44-3",
+            "Actor 1",
+            "Actor 1-2",
+            "Actor 1-3",
+            "examples/iter_tokio.rs:37",
+            "examples/iter_tokio.rs:37-2",
+            "examples/iter_tokio.rs:37-3",
+            "examples/iter_tokio.rs:52",
+            "examples/iter_tokio.rs:52-2",
+            "examples/iter_tokio.rs:52-3",
         ];
 
         for expected in all_expected {

@@ -8,7 +8,7 @@ use crate::{init_stats_state, ChannelType, StatsEvent, CHANNEL_ID_COUNTER};
 fn wrap_sync_channel_impl<T, F>(
     inner: (SyncSender<T>, Receiver<T>),
     source: &'static str,
-    label: Option<&'static str>,
+    label: Option<String>,
     capacity: usize,
     mut log_on_send: F,
 ) -> (SyncSender<T>, Receiver<T>)
@@ -113,7 +113,7 @@ where
 pub(crate) fn wrap_sync_channel<T: Send + 'static>(
     inner: (SyncSender<T>, Receiver<T>),
     source: &'static str,
-    label: Option<&'static str>,
+    label: Option<String>,
     capacity: usize,
 ) -> (SyncSender<T>, Receiver<T>) {
     wrap_sync_channel_impl(inner, source, label, capacity, |_| None)
@@ -123,7 +123,7 @@ pub(crate) fn wrap_sync_channel<T: Send + 'static>(
 pub(crate) fn wrap_sync_channel_log<T: Send + std::fmt::Debug + 'static>(
     inner: (SyncSender<T>, Receiver<T>),
     source: &'static str,
-    label: Option<&'static str>,
+    label: Option<String>,
     capacity: usize,
 ) -> (SyncSender<T>, Receiver<T>) {
     wrap_sync_channel_impl(inner, source, label, capacity, |msg| {
@@ -135,7 +135,7 @@ pub(crate) fn wrap_sync_channel_log<T: Send + std::fmt::Debug + 'static>(
 fn wrap_channel_impl<T, F>(
     inner: (Sender<T>, Receiver<T>),
     source: &'static str,
-    label: Option<&'static str>,
+    label: Option<String>,
     mut log_on_send: F,
 ) -> (Sender<T>, Receiver<T>)
 where
@@ -238,7 +238,7 @@ where
 pub(crate) fn wrap_channel<T: Send + 'static>(
     inner: (Sender<T>, Receiver<T>),
     source: &'static str,
-    label: Option<&'static str>,
+    label: Option<String>,
 ) -> (Sender<T>, Receiver<T>) {
     wrap_channel_impl(inner, source, label, |_| None)
 }
@@ -247,7 +247,7 @@ pub(crate) fn wrap_channel<T: Send + 'static>(
 pub(crate) fn wrap_channel_log<T: Send + std::fmt::Debug + 'static>(
     inner: (Sender<T>, Receiver<T>),
     source: &'static str,
-    label: Option<&'static str>,
+    label: Option<String>,
 ) -> (Sender<T>, Receiver<T>) {
     wrap_channel_impl(inner, source, label, |msg| Some(format!("{:?}", msg)))
 }
@@ -259,7 +259,7 @@ impl<T: Send + 'static> Instrument for (std::sync::mpsc::Sender<T>, std::sync::m
     fn instrument(
         self,
         source: &'static str,
-        label: Option<&'static str>,
+        label: Option<String>,
         _capacity: Option<usize>,
     ) -> Self::Output {
         wrap_channel(self, source, label)
@@ -273,7 +273,7 @@ impl<T: Send + 'static> Instrument
     fn instrument(
         self,
         source: &'static str,
-        label: Option<&'static str>,
+        label: Option<String>,
         capacity: Option<usize>,
     ) -> Self::Output {
         if capacity.is_none() {
@@ -292,7 +292,7 @@ impl<T: Send + std::fmt::Debug + 'static> InstrumentLog
     fn instrument_log(
         self,
         source: &'static str,
-        label: Option<&'static str>,
+        label: Option<String>,
         _capacity: Option<usize>,
     ) -> Self::Output {
         wrap_channel_log(self, source, label)
@@ -306,7 +306,7 @@ impl<T: Send + std::fmt::Debug + 'static> InstrumentLog
     fn instrument_log(
         self,
         source: &'static str,
-        label: Option<&'static str>,
+        label: Option<String>,
         capacity: Option<usize>,
     ) -> Self::Output {
         if capacity.is_none() {

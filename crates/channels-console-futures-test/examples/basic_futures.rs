@@ -2,19 +2,28 @@ use futures_util::stream::StreamExt;
 use smol::Timer;
 use std::time::Duration;
 
+struct Actor {
+    name: String,
+}
+
 #[allow(unused_mut)]
 fn main() {
     smol::block_on(async {
+        let actor1 = Actor {
+            name: "Actor 1".to_string(),
+        };
+
         #[cfg(feature = "channels-console")]
         let _channels_guard = channels_console::ChannelsGuard::new();
 
         let (txa, mut _rxa) = futures_channel::mpsc::unbounded::<i32>();
         #[cfg(feature = "channels-console")]
-        let (txa, mut _rxa) = channels_console::instrument!((txa, _rxa));
+        let (txa, mut _rxa) = channels_console::instrument!((txa, _rxa), label = actor1.name);
 
         let (mut txb, mut rxb) = futures_channel::mpsc::channel::<i32>(10);
         #[cfg(feature = "channels-console")]
-        let (mut txb, mut rxb) = channels_console::instrument!((txb, rxb), capacity = 10);
+        let (mut txb, mut rxb) =
+            channels_console::instrument!((txb, rxb), capacity = 10, label = "bounded-channel");
 
         let (txc, rxc) = futures_channel::oneshot::channel::<String>();
         #[cfg(feature = "channels-console")]

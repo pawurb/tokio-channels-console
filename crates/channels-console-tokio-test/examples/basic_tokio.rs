@@ -1,17 +1,25 @@
+struct Actor {
+    name: String,
+}
+
 #[allow(unused_mut)]
 #[tokio::main]
 async fn main() {
+    let actor1 = Actor {
+        name: "Actor 1".to_string(),
+    };
+
     #[cfg(feature = "channels-console")]
     let _channels_guard = channels_console::ChannelsGuard::new();
 
     let (txa, mut _rxa) = tokio::sync::mpsc::unbounded_channel::<i32>();
 
     #[cfg(feature = "channels-console")]
-    let (txa, _rxa) = channels_console::instrument!((txa, _rxa), log = true);
+    let (txa, _rxa) = channels_console::instrument!((txa, _rxa), log = true, label = actor1.name);
 
     let (txb, mut rxb) = tokio::sync::mpsc::channel::<i32>(10);
     #[cfg(feature = "channels-console")]
-    let (txb, mut rxb) = channels_console::instrument!((txb, rxb));
+    let (txb, mut rxb) = channels_console::instrument!((txb, rxb), label = "bounded-channel");
 
     let (txc, rxc) = tokio::sync::oneshot::channel::<String>();
     #[cfg(feature = "channels-console")]

@@ -8,7 +8,7 @@ use crate::{init_stats_state, ChannelType, StatsEvent, CHANNEL_ID_COUNTER};
 fn wrap_bounded_impl<T, F>(
     inner: (Sender<T>, Receiver<T>),
     source: &'static str,
-    label: Option<&'static str>,
+    label: Option<String>,
     capacity: usize,
     mut log_on_send: F,
 ) -> (Sender<T>, Receiver<T>)
@@ -112,7 +112,7 @@ where
 pub(crate) fn wrap_bounded<T: Send + 'static>(
     inner: (Sender<T>, Receiver<T>),
     source: &'static str,
-    label: Option<&'static str>,
+    label: Option<String>,
     capacity: usize,
 ) -> (Sender<T>, Receiver<T>) {
     wrap_bounded_impl(inner, source, label, capacity, |_| None)
@@ -122,7 +122,7 @@ pub(crate) fn wrap_bounded<T: Send + 'static>(
 pub(crate) fn wrap_bounded_log<T: Send + std::fmt::Debug + 'static>(
     inner: (Sender<T>, Receiver<T>),
     source: &'static str,
-    label: Option<&'static str>,
+    label: Option<String>,
     capacity: usize,
 ) -> (Sender<T>, Receiver<T>) {
     wrap_bounded_impl(inner, source, label, capacity, |msg| {
@@ -134,7 +134,7 @@ pub(crate) fn wrap_bounded_log<T: Send + std::fmt::Debug + 'static>(
 fn wrap_unbounded_impl<T, F>(
     inner: (Sender<T>, Receiver<T>),
     source: &'static str,
-    label: Option<&'static str>,
+    label: Option<String>,
     mut log_on_send: F,
 ) -> (Sender<T>, Receiver<T>)
 where
@@ -236,7 +236,7 @@ where
 pub(crate) fn wrap_unbounded<T: Send + 'static>(
     inner: (Sender<T>, Receiver<T>),
     source: &'static str,
-    label: Option<&'static str>,
+    label: Option<String>,
 ) -> (Sender<T>, Receiver<T>) {
     wrap_unbounded_impl(inner, source, label, |_| None)
 }
@@ -245,7 +245,7 @@ pub(crate) fn wrap_unbounded<T: Send + 'static>(
 pub(crate) fn wrap_unbounded_log<T: Send + std::fmt::Debug + 'static>(
     inner: (Sender<T>, Receiver<T>),
     source: &'static str,
-    label: Option<&'static str>,
+    label: Option<String>,
 ) -> (Sender<T>, Receiver<T>) {
     wrap_unbounded_impl(inner, source, label, |msg| Some(format!("{:?}", msg)))
 }
@@ -259,7 +259,7 @@ impl<T: Send + 'static> Instrument
     fn instrument(
         self,
         source: &'static str,
-        label: Option<&'static str>,
+        label: Option<String>,
         _capacity: Option<usize>,
     ) -> Self::Output {
         // Crossbeam uses the same Sender/Receiver types for both bounded and unbounded
@@ -280,7 +280,7 @@ impl<T: Send + std::fmt::Debug + 'static> InstrumentLog
     fn instrument_log(
         self,
         source: &'static str,
-        label: Option<&'static str>,
+        label: Option<String>,
         _capacity: Option<usize>,
     ) -> Self::Output {
         // Crossbeam uses the same Sender/Receiver types for both bounded and unbounded

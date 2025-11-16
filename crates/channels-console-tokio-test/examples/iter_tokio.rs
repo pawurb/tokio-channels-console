@@ -1,6 +1,14 @@
+struct Actor {
+    name: String,
+}
+
 #[allow(unused_mut)]
 #[tokio::main]
 async fn main() {
+    let actor1 = Actor {
+        name: "Actor 1".to_string(),
+    };
+
     #[cfg(feature = "channels-console")]
     let _channels_guard = channels_console::ChannelsGuard::new();
 
@@ -11,7 +19,7 @@ async fn main() {
         let (tx, mut rx) = tokio::sync::mpsc::channel::<i32>(10);
 
         #[cfg(feature = "channels-console")]
-        let (tx, mut rx) = channels_console::instrument!((tx, rx), label = "bounded");
+        let (tx, mut rx) = channels_console::instrument!((tx, rx), label = actor1.name.clone());
 
         println!("  - Created bounded channel {}", i);
 

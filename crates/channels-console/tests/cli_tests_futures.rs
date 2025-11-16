@@ -25,7 +25,8 @@ pub mod tests {
 
         assert!(!output.stderr.is_empty(), "Stderr is empty");
         let all_expected = [
-            "examples/basic_futures.rs",
+            "Actor 1",
+            "bounded-channel",
             "oneshot-labeled",
             "bounded[10]",
             "notified",
@@ -198,7 +199,8 @@ pub mod tests {
         }
 
         let all_expected = [
-            "basic_futures.rs",
+            "Actor 1",
+            "bounded-channel",
             "oneshot-labeled",
             "bounded[10]",
             "notified",
@@ -255,15 +257,15 @@ pub mod tests {
         let stdout = String::from_utf8_lossy(&output.stdout);
 
         let all_expected = [
-            "examples/iter_futures.rs:17",
-            "examples/iter_futures.rs:17-2",
-            "examples/iter_futures.rs:17-3",
+            "Actor 1",
+            "Actor 1-2",
+            "Actor 1-3",
             "bounded",
             "bounded-2",
             "bounded-3",
-            "examples/iter_futures.rs:50",
-            "examples/iter_futures.rs:50-2",
-            "examples/iter_futures.rs:50-3",
+            "examples/iter_futures.rs:58",
+            "examples/iter_futures.rs:58-2",
+            "examples/iter_futures.rs:58-3",
         ];
 
         for expected in all_expected {

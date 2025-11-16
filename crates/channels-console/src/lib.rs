@@ -150,7 +150,7 @@ impl<'de> Deserialize<'de> for ChannelState {
 pub(crate) struct ChannelStats {
     pub(crate) id: u64,
     pub(crate) source: &'static str,
-    pub(crate) label: Option<&'static str>,
+    pub(crate) label: Option<String>,
     pub(crate) channel_type: ChannelType,
     pub(crate) state: ChannelState,
     pub(crate) sent_count: u64,
@@ -203,7 +203,7 @@ pub struct SerializableChannelStats {
 
 impl From<&ChannelStats> for SerializableChannelStats {
     fn from(stats: &ChannelStats) -> Self {
-        let label = resolve_label(stats.source, stats.label, stats.iter);
+        let label = resolve_label(stats.source, stats.label.as_deref(), stats.iter);
 
         Self {
             id: stats.id,
@@ -227,7 +227,7 @@ impl ChannelStats {
     fn new(
         id: u64,
         source: &'static str,
-        label: Option<&'static str>,
+        label: Option<String>,
         channel_type: ChannelType,
         type_name: &'static str,
         type_size: usize,
@@ -275,7 +275,7 @@ pub(crate) enum StatsEvent {
     Created {
         id: u64,
         source: &'static str,
-        display_label: Option<&'static str>,
+        display_label: Option<String>,
         channel_type: ChannelType,
         type_name: &'static str,
         type_size: usize,
@@ -424,7 +424,7 @@ fn init_stats_state() -> &'static StatsState {
     })
 }
 
-fn resolve_label(id: &'static str, provided: Option<&'static str>, iter: u32) -> String {
+fn resolve_label(id: &'static str, provided: Option<&str>, iter: u32) -> String {
     let base_label = if let Some(l) = provided {
         l.to_string()
     } else if let Some(pos) = id.rfind(':') {
@@ -486,7 +486,7 @@ pub trait Instrument {
     fn instrument(
         self,
         source: &'static str,
-        label: Option<&'static str>,
+        label: Option<String>,
         capacity: Option<usize>,
     ) -> Self::Output;
 }
@@ -500,7 +500,7 @@ pub trait InstrumentLog {
     fn instrument_log(
         self,
         source: &'static str,
-        label: Option<&'static str>,
+        label: Option<String>,
         capacity: Option<usize>,
     ) -> Self::Output;
 }
@@ -595,7 +595,7 @@ macro_rules! instrument {
 
     ($expr:expr, label = $label:expr) => {{
         const CHANNEL_ID: &'static str = concat!(file!(), ":", line!());
-        $crate::Instrument::instrument($expr, CHANNEL_ID, Some($label), None)
+        $crate::Instrument::instrument($expr, CHANNEL_ID, Some($label.to_string()), None)
     }};
 
     ($expr:expr, capacity = $capacity:expr) => {{
@@ -607,13 +607,13 @@ macro_rules! instrument {
     ($expr:expr, label = $label:expr, capacity = $capacity:expr) => {{
         const CHANNEL_ID: &'static str = concat!(file!(), ":", line!());
         const _: usize = $capacity;
-        $crate::Instrument::instrument($expr, CHANNEL_ID, Some($label), Some($capacity))
+        $crate::Instrument::instrument($expr, CHANNEL_ID, Some($label.to_string()), Some($capacity))
     }};
 
     ($expr:expr, capacity = $capacity:expr, label = $label:expr) => {{
         const CHANNEL_ID: &'static str = concat!(file!(), ":", line!());
         const _: usize = $capacity;
-        $crate::Instrument::instrument($expr, CHANNEL_ID, Some($label), Some($capacity))
+        $crate::Instrument::instrument($expr, CHANNEL_ID, Some($label.to_string()), Some($capacity))
     }};
 
     // Variants with log = true
@@ -624,12 +624,12 @@ macro_rules! instrument {
 
     ($expr:expr, label = $label:expr, log = true) => {{
         const CHANNEL_ID: &'static str = concat!(file!(), ":", line!());
-        $crate::InstrumentLog::instrument_log($expr, CHANNEL_ID, Some($label), None)
+        $crate::InstrumentLog::instrument_log($expr, CHANNEL_ID, Some($label.to_string()), None)
     }};
 
     ($expr:expr, log = true, label = $label:expr) => {{
         const CHANNEL_ID: &'static str = concat!(file!(), ":", line!());
-        $crate::InstrumentLog::instrument_log($expr, CHANNEL_ID, Some($label), None)
+        $crate::InstrumentLog::instrument_log($expr, CHANNEL_ID, Some($label.to_string()), None)
     }};
 
     ($expr:expr, capacity = $capacity:expr, log = true) => {{
@@ -647,37 +647,67 @@ macro_rules! instrument {
     ($expr:expr, label = $label:expr, capacity = $capacity:expr, log = true) => {{
         const CHANNEL_ID: &'static str = concat!(file!(), ":", line!());
         const _: usize = $capacity;
-        $crate::InstrumentLog::instrument_log($expr, CHANNEL_ID, Some($label), Some($capacity))
+        $crate::InstrumentLog::instrument_log(
+            $expr,
+            CHANNEL_ID,
+            Some($label.to_string()),
+            Some($capacity),
+        )
     }};
 
     ($expr:expr, label = $label:expr, log = true, capacity = $capacity:expr) => {{
         const CHANNEL_ID: &'static str = concat!(file!(), ":", line!());
         const _: usize = $capacity;
-        $crate::InstrumentLog::instrument_log($expr, CHANNEL_ID, Some($label), Some($capacity))
+        $crate::InstrumentLog::instrument_log(
+            $expr,
+            CHANNEL_ID,
+            Some($label.to_string()),
+            Some($capacity),
+        )
     }};
 
     ($expr:expr, capacity = $capacity:expr, label = $label:expr, log = true) => {{
         const CHANNEL_ID: &'static str = concat!(file!(), ":", line!());
         const _: usize = $capacity;
-        $crate::InstrumentLog::instrument_log($expr, CHANNEL_ID, Some($label), Some($capacity))
+        $crate::InstrumentLog::instrument_log(
+            $expr,
+            CHANNEL_ID,
+            Some($label.to_string()),
+            Some($capacity),
+        )
     }};
 
     ($expr:expr, capacity = $capacity:expr, log = true, label = $label:expr) => {{
         const CHANNEL_ID: &'static str = concat!(file!(), ":", line!());
         const _: usize = $capacity;
-        $crate::InstrumentLog::instrument_log($expr, CHANNEL_ID, Some($label), Some($capacity))
+        $crate::InstrumentLog::instrument_log(
+            $expr,
+            CHANNEL_ID,
+            Some($label.to_string()),
+            Some($capacity),
+        )
     }};
 
     ($expr:expr, log = true, label = $label:expr, capacity = $capacity:expr) => {{
         const CHANNEL_ID: &'static str = concat!(file!(), ":", line!());
         const _: usize = $capacity;
-        $crate::InstrumentLog::instrument_log($expr, CHANNEL_ID, Some($label), Some($capacity))
+        $crate::InstrumentLog::instrument_log(
+            $expr,
+            CHANNEL_ID,
+            Some($label.to_string()),
+            Some($capacity),
+        )
     }};
 
     ($expr:expr, log = true, capacity = $capacity:expr, label = $label:expr) => {{
         const CHANNEL_ID: &'static str = concat!(file!(), ":", line!());
         const _: usize = $capacity;
-        $crate::InstrumentLog::instrument_log($expr, CHANNEL_ID, Some($label), Some($capacity))
+        $crate::InstrumentLog::instrument_log(
+            $expr,
+            CHANNEL_ID,
+            Some($label.to_string()),
+            Some($capacity),
+        )
     }};
 }
 
@@ -697,8 +727,9 @@ fn compare_channel_stats(a: &ChannelStats, b: &ChannelStats) -> std::cmp::Orderi
         (false, true) => std::cmp::Ordering::Greater,
         (true, true) => a
             .label
+            .as_ref()
             .unwrap()
-            .cmp(b.label.unwrap())
+            .cmp(b.label.as_ref().unwrap())
             .then_with(|| a.iter.cmp(&b.iter)),
         (false, false) => a.source.cmp(b.source).then_with(|| a.iter.cmp(&b.iter)),
     }

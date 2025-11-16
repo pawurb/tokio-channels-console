@@ -140,7 +140,7 @@ impl Drop for ChannelsGuard {
                 for channel_stats in stats {
                     let label = resolve_label(
                         channel_stats.source,
-                        channel_stats.label,
+                        channel_stats.label.as_deref(),
                         channel_stats.iter,
                     );
                     table.add_row(Row::new(vec![

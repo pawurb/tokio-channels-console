@@ -11,7 +11,7 @@ use crate::{init_stats_state, ChannelType, StatsEvent, CHANNEL_ID_COUNTER};
 fn wrap_channel_impl<T, F>(
     inner: (Sender<T>, Receiver<T>),
     source: &'static str,
-    label: Option<&'static str>,
+    label: Option<String>,
     mut log_on_send: F,
 ) -> (Sender<T>, Receiver<T>)
 where
@@ -115,7 +115,7 @@ where
 pub(crate) fn wrap_channel<T: Send + 'static>(
     inner: (Sender<T>, Receiver<T>),
     source: &'static str,
-    label: Option<&'static str>,
+    label: Option<String>,
 ) -> (Sender<T>, Receiver<T>) {
     wrap_channel_impl(inner, source, label, |_| None)
 }
@@ -124,7 +124,7 @@ pub(crate) fn wrap_channel<T: Send + 'static>(
 pub(crate) fn wrap_channel_log<T: Send + std::fmt::Debug + 'static>(
     inner: (Sender<T>, Receiver<T>),
     source: &'static str,
-    label: Option<&'static str>,
+    label: Option<String>,
 ) -> (Sender<T>, Receiver<T>) {
     wrap_channel_impl(inner, source, label, |msg| Some(format!("{:?}", msg)))
 }
@@ -133,7 +133,7 @@ pub(crate) fn wrap_channel_log<T: Send + std::fmt::Debug + 'static>(
 fn wrap_unbounded_impl<T, F>(
     inner: (UnboundedSender<T>, UnboundedReceiver<T>),
     source: &'static str,
-    label: Option<&'static str>,
+    label: Option<String>,
     mut log_on_send: F,
 ) -> (UnboundedSender<T>, UnboundedReceiver<T>)
 where
@@ -236,7 +236,7 @@ where
 pub(crate) fn wrap_unbounded<T: Send + 'static>(
     inner: (UnboundedSender<T>, UnboundedReceiver<T>),
     source: &'static str,
-    label: Option<&'static str>,
+    label: Option<String>,
 ) -> (UnboundedSender<T>, UnboundedReceiver<T>) {
     wrap_unbounded_impl(inner, source, label, |_| None)
 }
@@ -245,7 +245,7 @@ pub(crate) fn wrap_unbounded<T: Send + 'static>(
 pub(crate) fn wrap_unbounded_log<T: Send + std::fmt::Debug + 'static>(
     inner: (UnboundedSender<T>, UnboundedReceiver<T>),
     source: &'static str,
-    label: Option<&'static str>,
+    label: Option<String>,
 ) -> (UnboundedSender<T>, UnboundedReceiver<T>) {
     wrap_unbounded_impl(inner, source, label, |msg| Some(format!("{:?}", msg)))
 }
@@ -254,7 +254,7 @@ pub(crate) fn wrap_unbounded_log<T: Send + std::fmt::Debug + 'static>(
 fn wrap_oneshot_impl<T, F>(
     inner: (oneshot::Sender<T>, oneshot::Receiver<T>),
     source: &'static str,
-    label: Option<&'static str>,
+    label: Option<String>,
     mut log_on_send: F,
 ) -> (oneshot::Sender<T>, oneshot::Receiver<T>)
 where
@@ -360,7 +360,7 @@ where
 pub(crate) fn wrap_oneshot<T: Send + 'static>(
     inner: (oneshot::Sender<T>, oneshot::Receiver<T>),
     source: &'static str,
-    label: Option<&'static str>,
+    label: Option<String>,
 ) -> (oneshot::Sender<T>, oneshot::Receiver<T>) {
     wrap_oneshot_impl(inner, source, label, |_| None)
 }
@@ -369,7 +369,7 @@ pub(crate) fn wrap_oneshot<T: Send + 'static>(
 pub(crate) fn wrap_oneshot_log<T: Send + std::fmt::Debug + 'static>(
     inner: (oneshot::Sender<T>, oneshot::Receiver<T>),
     source: &'static str,
-    label: Option<&'static str>,
+    label: Option<String>,
 ) -> (oneshot::Sender<T>, oneshot::Receiver<T>) {
     wrap_oneshot_impl(inner, source, label, |msg| Some(format!("{:?}", msg)))
 }
@@ -381,7 +381,7 @@ impl<T: Send + 'static> Instrument for (Sender<T>, Receiver<T>) {
     fn instrument(
         self,
         source: &'static str,
-        label: Option<&'static str>,
+        label: Option<String>,
         _capacity: Option<usize>,
     ) -> Self::Output {
         wrap_channel(self, source, label)
@@ -393,7 +393,7 @@ impl<T: Send + 'static> Instrument for (UnboundedSender<T>, UnboundedReceiver<T>
     fn instrument(
         self,
         source: &'static str,
-        label: Option<&'static str>,
+        label: Option<String>,
         _capacity: Option<usize>,
     ) -> Self::Output {
         wrap_unbounded(self, source, label)
@@ -405,7 +405,7 @@ impl<T: Send + 'static> Instrument for (oneshot::Sender<T>, oneshot::Receiver<T>
     fn instrument(
         self,
         source: &'static str,
-        label: Option<&'static str>,
+        label: Option<String>,
         _capacity: Option<usize>,
     ) -> Self::Output {
         wrap_oneshot(self, source, label)
@@ -419,7 +419,7 @@ impl<T: Send + std::fmt::Debug + 'static> InstrumentLog for (Sender<T>, Receiver
     fn instrument_log(
         self,
         source: &'static str,
-        label: Option<&'static str>,
+        label: Option<String>,
         _capacity: Option<usize>,
     ) -> Self::Output {
         wrap_channel_log(self, source, label)
@@ -433,7 +433,7 @@ impl<T: Send + std::fmt::Debug + 'static> InstrumentLog
     fn instrument_log(
         self,
         source: &'static str,
-        label: Option<&'static str>,
+        label: Option<String>,
         _capacity: Option<usize>,
     ) -> Self::Output {
         wrap_unbounded_log(self, source, label)
@@ -447,7 +447,7 @@ impl<T: Send + std::fmt::Debug + 'static> InstrumentLog
     fn instrument_log(
         self,
         source: &'static str,
-        label: Option<&'static str>,
+        label: Option<String>,
         _capacity: Option<usize>,
     ) -> Self::Output {
         wrap_oneshot_log(self, source, label)

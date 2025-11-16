@@ -2,7 +2,15 @@ use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
 
+struct Actor {
+    name: String,
+}
+
 fn main() {
+    let actor1 = Actor {
+        name: "Actor 1".to_string(),
+    };
+
     #[cfg(feature = "channels-console")]
     let _channels_guard = channels_console::ChannelsGuard::new();
 
@@ -14,7 +22,7 @@ fn main() {
         let (tx, rx) = mpsc::channel::<i32>();
 
         #[cfg(feature = "channels-console")]
-        let (tx, rx) = channels_console::instrument!((tx, rx));
+        let (tx, rx) = channels_console::instrument!((tx, rx), label = actor1.name.clone());
 
         println!("  - Created unbounded channel {}", i);
 

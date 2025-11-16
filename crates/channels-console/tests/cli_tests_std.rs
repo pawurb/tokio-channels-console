@@ -24,7 +24,7 @@ pub mod tests {
         );
 
         assert!(!output.stderr.is_empty(), "Stderr is empty");
-        let all_expected = ["examples/basic_std.rs", "bounded[10]"];
+        let all_expected = ["Actor 1", "unbounded-channel", "bounded[10]"];
 
         let stdout = String::from_utf8_lossy(&output.stdout);
         for expected in all_expected {
@@ -144,7 +144,7 @@ pub mod tests {
             panic!("Failed after 4 retries: {}", error);
         }
 
-        let all_expected = ["basic_std.rs", "bounded[10]"];
+        let all_expected = ["Actor 1", "unbounded-channel", "bounded[10]"];
         for expected in all_expected {
             assert!(
                 json_text.contains(expected),
@@ -197,9 +197,9 @@ pub mod tests {
         let stdout = String::from_utf8_lossy(&output.stdout);
 
         let all_expected = [
-            "examples/iter_std.rs:17",
-            "examples/iter_std.rs:17-2",
-            "examples/iter_std.rs:17-3",
+            "Actor 1",
+            "Actor 1-2",
+            "Actor 1-3",
             "bounded",
             "bounded-2",
             "bounded-3",

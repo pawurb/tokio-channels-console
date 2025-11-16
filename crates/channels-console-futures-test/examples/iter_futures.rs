@@ -1,9 +1,17 @@
 use smol::Timer;
 use std::time::Duration;
 
+struct Actor {
+    name: String,
+}
+
 #[allow(unused_mut)]
 fn main() {
     smol::block_on(async {
+        let actor1 = Actor {
+            name: "Actor 1".to_string(),
+        };
+
         #[cfg(feature = "channels-console")]
         let _channels_guard = channels_console::ChannelsGuard::new();
 
@@ -14,7 +22,7 @@ fn main() {
             let (tx, mut rx) = futures_channel::mpsc::unbounded::<i32>();
 
             #[cfg(feature = "channels-console")]
-            let (tx, mut rx) = channels_console::instrument!((tx, rx));
+            let (tx, mut rx) = channels_console::instrument!((tx, rx), label = actor1.name.clone());
 
             println!("  - Created unbounded channel {}", i);
 
