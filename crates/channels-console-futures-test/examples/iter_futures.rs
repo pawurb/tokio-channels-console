@@ -23,7 +23,7 @@ fn main() {
             let (tx, mut rx) = futures_channel::mpsc::unbounded::<i32>();
 
             #[cfg(feature = "channels-console")]
-            let (tx, mut rx) = channels_console::channel!((tx, rx), label = actor1.name.clone());
+            let (tx, mut rx) = channels_console::channel!((tx, rx), label = _actor1.name.clone());
 
             println!("  - Created unbounded channel {}", i);
 

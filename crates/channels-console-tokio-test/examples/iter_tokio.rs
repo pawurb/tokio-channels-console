@@ -6,7 +6,7 @@ struct Actor {
 #[allow(unused_mut)]
 #[tokio::main]
 async fn main() {
-    let _actor1 = Actor {
+    let actor1 = Actor {
         name: "Actor 1".to_string(),
     };
 

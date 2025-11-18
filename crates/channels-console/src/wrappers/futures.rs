@@ -6,7 +6,7 @@ use std::mem;
 use std::sync::atomic::Ordering;
 
 use crate::RT;
-use crate::{init_stats_state, ChannelEvent, ChannelType, CHANNEL_ID_COUNTER};
+use crate::{init_channels_state, ChannelEvent, ChannelType, CHANNEL_ID_COUNTER};
 
 /// Internal implementation for wrapping bounded futures channels with optional logging.
 fn wrap_channel_impl<T, F>(
@@ -26,7 +26,7 @@ where
     let (outer_tx, mut to_inner_rx) = mpsc::channel::<T>(capacity);
     let (mut from_inner_tx, outer_rx) = mpsc::channel::<T>(capacity);
 
-    let (stats_tx, _) = init_stats_state();
+    let (stats_tx, _) = init_channels_state();
 
     // Generate unique ID for this channel
     let id = CHANNEL_ID_COUNTER.fetch_add(1, Ordering::Relaxed);
@@ -141,7 +141,7 @@ where
     let (outer_tx, mut to_inner_rx) = mpsc::unbounded::<T>();
     let (from_inner_tx, outer_rx) = mpsc::unbounded::<T>();
 
-    let (stats_tx, _) = init_stats_state();
+    let (stats_tx, _) = init_channels_state();
 
     // Generate unique ID for this channel
     let id = CHANNEL_ID_COUNTER.fetch_add(1, Ordering::Relaxed);
@@ -251,7 +251,7 @@ where
     let (outer_tx, outer_rx_proxy) = oneshot::channel::<T>();
     let (inner_tx_proxy, outer_rx) = oneshot::channel::<T>();
 
-    let (stats_tx, _) = init_stats_state();
+    let (stats_tx, _) = init_channels_state();
 
     // Generate unique ID for this channel
     let id = CHANNEL_ID_COUNTER.fetch_add(1, Ordering::Relaxed);

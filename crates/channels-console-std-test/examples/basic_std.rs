@@ -20,7 +20,7 @@ fn main() {
 
     let (txb, rxb) = std::sync::mpsc::sync_channel::<i32>(10);
     #[cfg(feature = "channels-console")]
-    let (txb, rxb) = channels_console::channel!((txb, rxb), capacity = 10, label = actor1.name);
+    let (txb, rxb) = channels_console::channel!((txb, rxb), capacity = 10, label = _actor1.name);
 
     let sender_handle = thread::spawn(move || {
         for i in 1..=3 {
