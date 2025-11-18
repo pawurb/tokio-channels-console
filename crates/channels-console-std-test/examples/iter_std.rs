@@ -2,12 +2,13 @@ use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
 
+#[allow(dead_code)]
 struct Actor {
     name: String,
 }
 
 fn main() {
-    let actor1 = Actor {
+    let _actor1 = Actor {
         name: "Actor 1".to_string(),
     };
 
@@ -22,7 +23,7 @@ fn main() {
         let (tx, rx) = mpsc::channel::<i32>();
 
         #[cfg(feature = "channels-console")]
-        let (tx, rx) = channels_console::instrument!((tx, rx), label = actor1.name.clone());
+        let (tx, rx) = channels_console::channel!((tx, rx), label = _actor1.name.clone());
 
         println!("  - Created unbounded channel {}", i);
 
@@ -38,7 +39,7 @@ fn main() {
         let (tx, rx) = mpsc::sync_channel::<i32>(10);
 
         #[cfg(feature = "channels-console")]
-        let (tx, rx) = channels_console::instrument!((tx, rx), capacity = 10, label = "bounded");
+        let (tx, rx) = channels_console::channel!((tx, rx), capacity = 10, label = "bounded");
 
         println!("  - Created bounded channel {}", i);
 

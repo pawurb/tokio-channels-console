@@ -3,15 +3,15 @@
 
 ![Console TUI Example](channels-console-tui5.gif)
 
-A lightweight, easy-to-use tool for real-time visibility into your Rust channels. Inspect live message contents and observe how channels interact to better understand data flow. Track queue depth, delay, throughput, and memory usage to spot channel-related issues.
+A lightweight, easy-to-use tool for real-time visibility into your Rust channels and streams. Inspect live message contents and observe how channels interact to better understand data flow. Track queue depth, delay, throughput, and memory usage to spot channel-related issues.
 
-Supports [std::sync](https://doc.rust-lang.org/stable/std/sync/mpsc/index.html), [Tokio](https://github.com/tokio-rs/tokio), [futures-rs](https://github.com/rust-lang/futures-rs), and [crossbeam](https://github.com/crossbeam-rs/crossbeam) channels - with more on the way.
+Supports [std::sync](https://doc.rust-lang.org/stable/std/sync/mpsc/index.html), [Tokio](https://github.com/tokio-rs/tokio), [futures-rs](https://github.com/rust-lang/futures-rs), and [crossbeam](https://github.com/crossbeam-rs/crossbeam) channels, plus any type implementing the [futures::Stream](https://docs.rs/futures/latest/futures/stream/trait.Stream.html) trait.
 
 ## Features
 
 - **Zero-cost when disabled** — fully gated by a feature flag
-- **Minimal configuration** - just one `instrument!` macro to start collecting metrics
-- **Detailed stats** - per channel status, sent/received messages, queue capacity, and memory usage 
+- **Minimal configuration** - just one `channel!` or `stream!` macro to start collecting metrics
+- **Detailed stats** - per channel/stream status, sent/received messages, queue capacity, and memory usage
 - **Background processing** - minimal profiling impact
 - **Live monitoring** - view metrics in a clear, real-time TUI dashboard (built with [ratatui.rs](https://ratatui.rs/))
 
@@ -30,21 +30,37 @@ This config ensures that the lib has **zero** overhead unless explicitly enabled
 
 [std::sync](https://doc.rust-lang.org/stable/std/sync/mpsc/index.html) channels can be instrumented by default. Enable `tokio`, `futures`, or `crossbeam` features for [Tokio](https://github.com/tokio-rs/tokio), [futures-rs](https://github.com/rust-lang/futures-rs), and [crossbeam](https://github.com/crossbeam-rs/crossbeam) channels, respectively.
 
-Next use `instrument!` macro to monitor selected channels:
+### Instrumenting Channels
+
+Use the `channel!` macro to monitor selected channels:
 
 ```rust
 let (tx1, rx1) = tokio::sync::mpsc::channel::<i32>(10);
 #[cfg(feature = "channels-console")]
-let (tx1, rx1) = channels_console::instrument!((tx1, rx1));
+let (tx1, rx1) = channels_console::channel!((tx1, rx1));
 
 let (mut txb, mut rxb) = futures_channel::mpsc::channel::<i32>(10);
 #[cfg(feature = "channels-console")]
-let (mut txb, mut rxb) = channels_console::instrument!((txb, rxb), capacity = 10);
+let (mut txb, mut rxb) = channels_console::channel!((txb, rxb), capacity = 10);
 ```
 
-Futures and `std::sync` bounded channels don't provide an API exposing their size, so you have to provide `capacity` to the `instrument!` macro.
+Futures and `std::sync` bounded channels don't provide an API exposing their size, so you have to provide `capacity` to the `channel!` macro.
 
-This is the only change you have to do in your codebase. `instrument!` macro returns exactly the same channel types so it remains 100% compatible.
+### Instrumenting Streams
+
+Use the `stream!` macro to monitor any type implementing the `Stream` trait:
+
+```rust
+use futures::stream::{self, StreamExt};
+
+let s = stream::iter(1..=10);
+#[cfg(feature = "channels-console")]
+let s = channels_console::stream!(s, label = "my-stream");
+
+let items: Vec<_> = s.collect().await;
+```
+
+This is the only change you have to do in your codebase. Both macros return exactly the same types so they remain 100% compatible.
 
 Now, install `channels-console` TUI:
 
@@ -95,9 +111,11 @@ channels-console
 
 ## How it works?
 
-`instrument!` wraps Tokio channels with lightweight proxies that transparently forward all messages while collecting real-time statistics. Each `send` and `recv` operation passes through a monitored proxy channel that emits updates to a background metrics system.
+The `channel!` macro wraps channels with lightweight proxies that transparently forward all messages while collecting real-time statistics. Each `send` and `recv` operation passes through a monitored proxy channel that emits updates to a background metrics system.
 
-In the background a HTTP server process exposes gathered metrics in a JSON format, allowing TUI process to display them in the interface.
+The `stream!` macro wraps streams and tracks items as they are yielded, collecting statistics about throughput and completion.
+
+In the background, an HTTP server process exposes gathered metrics in a JSON format, allowing the TUI process to display them in the interface.
 
 ### A note on accuracy
 
@@ -135,11 +153,14 @@ This library has just been released. I've tested it with several apps, [big](htt
 - [`crossbeam_channel::bounded`](https://docs.rs/crossbeam/latest/crossbeam/channel/fn.bounded.html)
 - [`crossbeam_channel::unbounded`](https://docs.rs/crossbeam/latest/crossbeam/channel/fn.unbounded.html)
 
+#### Streams
+- Any type implementing [`futures_util::Stream`](https://docs.rs/futures/latest/futures/stream/trait.Stream.html)
+
 _I'm planning to support more channel types. PRs are welcome!_
 
-### `instrument!` Macro
+### `channel!` Macro
 
-The `instrument!` macro is the primary way to monitor channels. It wraps channel creation expressions and returns instrumented versions that collect metrics.
+The `channel!` macro is the primary way to monitor channels. It wraps channel creation expressions and returns instrumented versions that collect metrics.
 
 **Basic Usage:**
 
@@ -153,7 +174,7 @@ async fn main() {
 
     // Instrument them only when the feature is enabled
     #[cfg(feature = "channels-console")]
-    let (tx, rx) = channels_console::instrument!((tx, rx));
+    let (tx, rx) = channels_console::channel!((tx, rx));
 
     // The channel works exactly the same way
     tx.send("Hello".to_string()).await.unwrap();
@@ -162,7 +183,7 @@ async fn main() {
 
 **Zero-Cost Abstraction:** When the `channels-console` feature is disabled, the `#[cfg]` attribute ensures the instrumentation code is completely removed at compile time - there's absolutely zero runtime overhead.
 
-**Note:** The first invocation of `instrument!` automatically starts:
+**Note:** The first invocation of `channel!` automatically starts:
 - A background thread for metrics collection
 - An HTTP server on `http://127.0.0.1:6770` (default port) exposing metrics in JSON format
 
@@ -175,7 +196,7 @@ By default, channels are labeled with their file location and line number (e.g.,
 ```rust
 let (tx, rx) = mpsc::channel::<Task>(10);
 #[cfg(feature = "channels-console")]
-let (tx, rx) = channels_console::instrument!((tx, rx), label = "task-queue");
+let (tx, rx) = channels_console::channel!((tx, rx), label = "task-queue");
 ```
 
 **Capacity Parameter Requirement:**
@@ -188,7 +209,7 @@ use std::sync::mpsc;
 // std::sync::mpsc::sync_channel - MUST specify capacity
 let (tx, rx) = mpsc::sync_channel::<String>(10);
 #[cfg(feature = "channels-console")]
-let (tx, rx) = channels_console::instrument!((tx, rx), capacity = 10);
+let (tx, rx) = channels_console::channel!((tx, rx), capacity = 10);
 ```
 
 ```rust
@@ -197,7 +218,7 @@ use futures_channel::mpsc;
 // futures bounded channel - MUST specify capacity
 let (tx, rx) = mpsc::channel::<String>(10);
 #[cfg(feature = "channels-console")]
-let (tx, rx) = channels_console::instrument!((tx, rx), capacity = 10);
+let (tx, rx) = channels_console::channel!((tx, rx), capacity = 10);
 ```
 
 Tokio and crossbeam channels don't require the capacity parameter because their capacity is accessible from the channel handles. 
@@ -211,8 +232,60 @@ use tokio::sync::mpsc;
 
 let (tx, rx) = mpsc::channel::<String>(10);
 #[cfg(feature = "channels-console")]
-let (tx, rx) = channels_console::instrument!((tx, rx), log = true);
+let (tx, rx) = channels_console::channel!((tx, rx), log = true);
 ```
+
+### `stream!` Macro
+
+The `stream!` macro allows you to monitor any type implementing the `futures::Stream` trait:
+
+**Basic Usage:**
+
+```rust
+use futures_util::stream::{self, StreamExt};
+
+#[tokio::main]
+async fn main() {
+    // Create a stream
+    let stream = stream::iter(1..=10);
+
+    // Instrument it
+    #[cfg(feature = "channels-console")]
+    let stream = channels_console::stream!(stream);
+
+    // Use it normally
+    let items: Vec<_> = stream.collect().await;
+}
+```
+
+**Stream Labels:**
+
+Like channels, streams can be labeled for easier identification:
+
+```rust
+let stream = stream::iter(1..=10);
+#[cfg(feature = "channels-console")]
+let stream = channels_console::stream!(stream, label = "number-stream");
+```
+
+**Message Logging:**
+
+Capture the actual content of yielded items (requires `Debug` trait on the item type):
+
+```rust
+let stream = stream::iter(vec!["hello", "world"]);
+#[cfg(feature = "channels-console")]
+let stream = channels_console::stream!(stream, log = true);
+```
+
+**What's Tracked:**
+
+For streams, the instrumentation tracks:
+- **Yielded** - Total number of items produced by the stream
+- **State** - Whether the stream is active or completed (returned `None`)
+- **Item Logs** - Optional Debug representation of yielded items (when `log = true`)
+
+**Note:** Unlike channels, streams don't have concepts like "queue depth" or "sent vs received" - they only yield items. 
 
 ### `ChannelsGuard` - Printing Statistics on Drop
 
@@ -232,7 +305,7 @@ async fn main() {
     // Your code with instrumented channels...
     let (tx, rx) = mpsc::channel::<i32>(10);
     #[cfg(feature = "channels-console")]
-    let (tx, rx) = channels_console::instrument!((tx, rx));
+    let (tx, rx) = channels_console::channel!((tx, rx));
 
     // ... use your channels ...
 

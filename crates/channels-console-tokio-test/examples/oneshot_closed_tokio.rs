@@ -6,7 +6,7 @@ async fn main() {
     let (tx, rx) = tokio::sync::oneshot::channel::<String>();
 
     #[cfg(feature = "channels-console")]
-    let (tx, rx) = channels_console::instrument!((tx, rx));
+    let (tx, rx) = channels_console::channel!((tx, rx));
 
     drop(rx);
 

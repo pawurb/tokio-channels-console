@@ -2,7 +2,7 @@ use crossbeam_channel::{self, Receiver, Sender};
 use std::mem;
 use std::sync::atomic::Ordering;
 
-use crate::{init_stats_state, ChannelType, StatsEvent, CHANNEL_ID_COUNTER};
+use crate::{init_channels_state, ChannelEvent, ChannelType, CHANNEL_ID_COUNTER};
 
 /// Internal implementation for wrapping bounded crossbeam channels with optional logging.
 fn wrap_bounded_impl<T, F>(
@@ -22,11 +22,11 @@ where
     let (outer_tx, to_inner_rx) = crossbeam_channel::bounded::<T>(capacity);
     let (from_inner_tx, outer_rx) = crossbeam_channel::bounded::<T>(capacity);
 
-    let (stats_tx, _) = init_stats_state();
+    let (stats_tx, _) = init_channels_state();
 
     let id = CHANNEL_ID_COUNTER.fetch_add(1, Ordering::Relaxed);
 
-    let _ = stats_tx.send(StatsEvent::Created {
+    let _ = stats_tx.send(ChannelEvent::Created {
         id,
         source,
         display_label: label,
@@ -67,7 +67,7 @@ where
                         // Inner receiver dropped
                         break;
                     }
-                    let _ = stats_tx_send.send(StatsEvent::MessageSent {
+                    let _ = stats_tx_send.send(ChannelEvent::MessageSent {
                         id,
                         log,
                         timestamp: std::time::Instant::now(),
@@ -84,7 +84,7 @@ where
             }
         }
         // Channel is closed
-        let _ = stats_tx_send.send(StatsEvent::Closed { id });
+        let _ = stats_tx_send.send(ChannelEvent::Closed { id });
     });
 
     // Forward inner -> outer (proxy the recv path)
@@ -95,13 +95,13 @@ where
                 let _ = close_signal_tx.send(());
                 break;
             }
-            let _ = stats_tx_recv.send(StatsEvent::MessageReceived {
+            let _ = stats_tx_recv.send(ChannelEvent::MessageReceived {
                 id,
                 timestamp: std::time::Instant::now(),
             });
         }
         // Channel is closed (either inner sender dropped or outer receiver closed)
-        let _ = stats_tx_recv.send(StatsEvent::Closed { id });
+        let _ = stats_tx_recv.send(ChannelEvent::Closed { id });
     });
 
     (outer_tx, outer_rx)
@@ -147,11 +147,11 @@ where
     let (outer_tx, to_inner_rx) = crossbeam_channel::unbounded::<T>();
     let (from_inner_tx, outer_rx) = crossbeam_channel::unbounded::<T>();
 
-    let (stats_tx, _) = init_stats_state();
+    let (stats_tx, _) = init_channels_state();
 
     let id = CHANNEL_ID_COUNTER.fetch_add(1, Ordering::Relaxed);
 
-    let _ = stats_tx.send(StatsEvent::Created {
+    let _ = stats_tx.send(ChannelEvent::Created {
         id,
         source,
         display_label: label,
@@ -192,7 +192,7 @@ where
                         // Inner receiver dropped
                         break;
                     }
-                    let _ = stats_tx_send.send(StatsEvent::MessageSent {
+                    let _ = stats_tx_send.send(ChannelEvent::MessageSent {
                         id,
                         log,
                         timestamp: std::time::Instant::now(),
@@ -209,7 +209,7 @@ where
             }
         }
         // Channel is closed
-        let _ = stats_tx_send.send(StatsEvent::Closed { id });
+        let _ = stats_tx_send.send(ChannelEvent::Closed { id });
     });
 
     // Forward inner -> outer (proxy the recv path)
@@ -220,13 +220,13 @@ where
                 let _ = close_signal_tx.send(());
                 break;
             }
-            let _ = stats_tx_recv.send(StatsEvent::MessageReceived {
+            let _ = stats_tx_recv.send(ChannelEvent::MessageReceived {
                 id,
                 timestamp: std::time::Instant::now(),
             });
         }
         // Channel is closed (either inner sender dropped or outer receiver closed)
-        let _ = stats_tx_recv.send(StatsEvent::Closed { id });
+        let _ = stats_tx_recv.send(ChannelEvent::Closed { id });
     });
 
     (outer_tx, outer_rx)

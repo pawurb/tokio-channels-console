@@ -7,17 +7,17 @@ async fn main() {
     let (txa, mut rxa) = tokio::sync::mpsc::unbounded_channel::<i32>();
 
     #[cfg(feature = "channels-console")]
-    let (txa, mut rxa) = channels_console::instrument!((txa, rxa), label = "unbounded-channel");
+    let (txa, mut rxa) = channels_console::channel!((txa, rxa), label = "unbounded-channel");
 
     let (txb, mut rxb) = tokio::sync::mpsc::channel::<i32>(10);
 
     #[cfg(feature = "channels-console")]
-    let (txb, mut rxb) = channels_console::instrument!((txb, rxb), label = "bounded-channel");
+    let (txb, mut rxb) = channels_console::channel!((txb, rxb), label = "bounded-channel");
 
     let (txc, rxc) = tokio::sync::oneshot::channel::<String>();
 
     #[cfg(feature = "channels-console")]
-    let (txc, rxc) = channels_console::instrument!((txc, rxc), label = "oneshot-channel");
+    let (txc, rxc) = channels_console::channel!((txc, rxc), label = "oneshot-channel");
 
     println!("[Unbounded] Sending 3 messages...");
     for i in 1..=3 {

@@ -15,7 +15,7 @@ async fn main() {
     let (tx, mut rx) = tokio::sync::mpsc::channel::<i32>(10);
     #[cfg(feature = "channels-console")]
     let (tx, mut rx) =
-        channels_console::instrument!((tx, rx), capacity = 10, label = "slow-consumer", log = true);
+        channels_console::channel!((tx, rx), capacity = 10, label = "slow-consumer", log = true);
 
     // Producer: sends every 100ms
     let producer_handle = tokio::spawn(async move {

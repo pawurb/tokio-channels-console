@@ -1,12 +1,13 @@
 use std::thread;
 use std::time::Duration;
 
+#[allow(dead_code)]
 struct Actor {
     name: String,
 }
 
 fn main() {
-    let actor1 = Actor {
+    let _actor1 = Actor {
         name: "Actor 1".to_string(),
     };
 
@@ -15,11 +16,11 @@ fn main() {
 
     let (txa, _rxa) = std::sync::mpsc::channel::<i32>();
     #[cfg(feature = "channels-console")]
-    let (txa, _rxa) = channels_console::instrument!((txa, _rxa), label = "unbounded-channel");
+    let (txa, _rxa) = channels_console::channel!((txa, _rxa), label = "unbounded-channel");
 
     let (txb, rxb) = std::sync::mpsc::sync_channel::<i32>(10);
     #[cfg(feature = "channels-console")]
-    let (txb, rxb) = channels_console::instrument!((txb, rxb), capacity = 10, label = actor1.name);
+    let (txb, rxb) = channels_console::channel!((txb, rxb), capacity = 10, label = _actor1.name);
 
     let sender_handle = thread::spawn(move || {
         for i in 1..=3 {

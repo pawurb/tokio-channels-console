@@ -57,10 +57,11 @@ pub(crate) fn render_channels_panel(
                 }
             };
 
-            let mem_cell = match stat.channel_type {
+            let mem_cell = match &stat.channel_type {
                 ChannelType::Unbounded => Cell::from("N/A"),
                 _ => Cell::from(format_bytes(stat.queued_bytes)),
             };
+            let queue_cell = queue_status(stat.queued, &stat.channel_type, 8);
 
             let row = Row::new(vec![
                 Cell::from(truncate_left(&stat.label, channel_width)),
@@ -68,7 +69,7 @@ pub(crate) fn render_channels_panel(
                 Cell::from(state_text).style(state_style),
                 Cell::from(stat.sent_count.to_string()),
                 Cell::from(stat.received_count.to_string()),
-                queue_status(stat.queued, &stat.channel_type, 8),
+                queue_cell,
                 mem_cell,
             ]);
 

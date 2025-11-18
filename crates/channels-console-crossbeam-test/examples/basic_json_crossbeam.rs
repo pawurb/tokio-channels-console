@@ -9,11 +9,11 @@ fn main() {
 
     let (txa, mut _rxa) = crossbeam_channel::unbounded::<i32>();
     #[cfg(feature = "channels-console")]
-    let (txa, mut _rxa) = channels_console::instrument!((txa, _rxa), label = "unbounded");
+    let (txa, mut _rxa) = channels_console::channel!((txa, _rxa), label = "unbounded");
 
     let (txb, rxb) = crossbeam_channel::bounded::<i32>(10);
     #[cfg(feature = "channels-console")]
-    let (txb, rxb) = channels_console::instrument!((txb, rxb), label = "bounded", capacity = 10);
+    let (txb, rxb) = channels_console::channel!((txb, rxb), label = "bounded", capacity = 10);
 
     let sender_handle = thread::spawn(move || {
         for i in 1..=3 {

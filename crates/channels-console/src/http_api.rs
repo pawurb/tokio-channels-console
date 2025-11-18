@@ -1,7 +1,14 @@
-use crate::{get_channel_logs, get_metrics_json};
+use crate::{get_channel_logs, get_channels_json, get_stream_logs, get_streams_json};
+use regex::Regex;
 use serde::Serialize;
 use std::fmt::Display;
+use std::sync::LazyLock;
 use tiny_http::{Header, Request, Response, Server};
+
+static RE_CHANNEL_LOGS: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^/channels/(\d+)/logs$").unwrap());
+static RE_STREAM_LOGS: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^/streams/(\d+)/logs$").unwrap());
 
 pub(crate) fn start_metrics_server(addr: &str) {
     let server = match Server::http(addr) {
@@ -22,27 +29,32 @@ fn handle_request(request: Request) {
     let path = request.url().split('?').next().unwrap_or("/");
 
     match path {
-        "/metrics" => {
-            let metrics = get_metrics_json();
-            respond_json(request, &metrics);
+        "/channels" => {
+            let channels = get_channels_json();
+            respond_json(request, &channels);
+        }
+        "/streams" => {
+            let streams = get_streams_json();
+            respond_json(request, &streams);
         }
         _ => {
-            if let Some(id_str) = path.strip_prefix("/logs/") {
-                match id_str.parse::<u64>() {
-                    Ok(channel_id) => {
-                        let channel_id_str = channel_id.to_string();
-                        match get_channel_logs(&channel_id_str) {
-                            Some(logs) => respond_json(request, &logs),
-                            None => respond_error(request, 404, "Channel not found"),
-                        }
-                    }
-                    Err(_) => {
-                        respond_error(request, 400, "Invalid channel ID: must be a valid number")
-                    }
-                }
-            } else {
-                respond_error(request, 404, "Not found");
+            // Handle /channels/<id>/logs
+            if let Some(caps) = RE_CHANNEL_LOGS.captures(path) {
+                return match get_channel_logs(&caps[1]) {
+                    Some(logs) => respond_json(request, &logs),
+                    None => respond_error(request, 404, "Channel not found"),
+                };
             }
+
+            // Handle /streams/<id>/logs
+            if let Some(caps) = RE_STREAM_LOGS.captures(path) {
+                return match get_stream_logs(&caps[1]) {
+                    Some(logs) => respond_json(request, &logs),
+                    None => respond_error(request, 404, "Stream not found"),
+                };
+            }
+
+            respond_error(request, 404, "Not found");
         }
     }
 }

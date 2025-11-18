@@ -138,36 +138,36 @@ async fn main() {
     let (tx_fast, mut rx_fast) = tokio::sync::mpsc::unbounded_channel::<String>();
     #[cfg(feature = "channels-console")]
     let (tx_fast, mut rx_fast) =
-        channels_console::instrument!((tx_fast, rx_fast), label = "fast-data-stream");
+        channels_console::channel!((tx_fast, rx_fast), label = "fast-data-stream");
 
     // Channel 2: Slow consumer - bounded(5), will back up!
     let (tx_slow, mut rx_slow) = tokio::sync::mpsc::channel::<UserData>(5);
     #[cfg(feature = "channels-console")]
     let (tx_slow, mut rx_slow) =
-        channels_console::instrument!((tx_slow, rx_slow), label = "slow-consumer", log = true);
+        channels_console::channel!((tx_slow, rx_slow), label = "slow-consumer", log = true);
 
     // Channel 3: Burst traffic - bounded(10), bursts every 3 seconds
     let (tx_burst, mut rx_burst) = tokio::sync::mpsc::channel::<u64>(10);
     #[cfg(feature = "channels-console")]
     let (tx_burst, mut rx_burst) =
-        channels_console::instrument!((tx_burst, rx_burst), label = "burst-traffic", log = true);
+        channels_console::channel!((tx_burst, rx_burst), label = "burst-traffic", log = true);
 
     // Channel 4: Gradual flow - bounded(20), increasing rate
     let (tx_gradual, mut rx_gradual) = tokio::sync::mpsc::channel::<f64>(20);
     #[cfg(feature = "channels-console")]
     let (tx_gradual, mut rx_gradual) =
-        channels_console::instrument!((tx_gradual, rx_gradual), log = true);
+        channels_console::channel!((tx_gradual, rx_gradual), log = true);
 
     // Channel 5: Dropped early - unbounded, producer dies at 10s
     let (tx_drop_early, mut rx_drop_early) = tokio::sync::mpsc::unbounded_channel::<bool>();
     #[cfg(feature = "channels-console")]
     let (tx_drop_early, mut rx_drop_early) =
-        channels_console::instrument!((tx_drop_early, rx_drop_early), log = true);
+        channels_console::channel!((tx_drop_early, rx_drop_early), log = true);
 
     // Channel 6: Consumer dies - bounded(8), consumer stops at 15s
     let (tx_consumer_dies, mut rx_consumer_dies) = tokio::sync::mpsc::channel::<Vec<u8>>(8);
     #[cfg(feature = "channels-console")]
-    let (tx_consumer_dies, mut rx_consumer_dies) = channels_console::instrument!(
+    let (tx_consumer_dies, mut rx_consumer_dies) = channels_console::channel!(
         (tx_consumer_dies, rx_consumer_dies),
         label = "consumer-dies",
         log = true
@@ -176,25 +176,24 @@ async fn main() {
     // Channel 7: Steady stream - unbounded, consistent 500ms rate
     let (tx_steady, mut rx_steady) = tokio::sync::mpsc::unbounded_channel::<&str>();
     #[cfg(feature = "channels-console")]
-    let (tx_steady, mut rx_steady) =
-        channels_console::instrument!((tx_steady, rx_steady), log = true);
+    let (tx_steady, mut rx_steady) = channels_console::channel!((tx_steady, rx_steady), log = true);
 
     // Channel 8: Oneshot early - fires at 5 seconds
     let (tx_oneshot_early, rx_oneshot_early) = tokio::sync::oneshot::channel::<String>();
     #[cfg(feature = "channels-console")]
     let (tx_oneshot_early, rx_oneshot_early) =
-        channels_console::instrument!((tx_oneshot_early, rx_oneshot_early), log = true);
+        channels_console::channel!((tx_oneshot_early, rx_oneshot_early), log = true);
 
     // Channel 9: Oneshot mid - fires at 15 seconds
     let (tx_oneshot_mid, rx_oneshot_mid) = tokio::sync::oneshot::channel::<u32>();
     #[cfg(feature = "channels-console")]
     let (tx_oneshot_mid, rx_oneshot_mid) =
-        channels_console::instrument!((tx_oneshot_mid, rx_oneshot_mid), log = true);
+        channels_console::channel!((tx_oneshot_mid, rx_oneshot_mid), log = true);
 
     // Channel 10: Oneshot late - fires at 25 seconds
     let (tx_oneshot_late, rx_oneshot_late) = tokio::sync::oneshot::channel::<i64>();
     #[cfg(feature = "channels-console")]
-    let (tx_oneshot_late, rx_oneshot_late) = channels_console::instrument!(
+    let (tx_oneshot_late, rx_oneshot_late) = channels_console::channel!(
         (tx_oneshot_late, rx_oneshot_late),
         label = "oneshot-late",
         log = true
@@ -203,7 +202,7 @@ async fn main() {
     // Channel 11: Big payload - bounded(10), sends large structured data
     let (tx_big_payload, mut rx_big_payload) = tokio::sync::mpsc::channel::<BigPayload>(10);
     #[cfg(feature = "channels-console")]
-    let (tx_big_payload, mut rx_big_payload) = channels_console::instrument!(
+    let (tx_big_payload, mut rx_big_payload) = channels_console::channel!(
         (tx_big_payload, rx_big_payload),
         label = "big-payload",
         log = true
@@ -214,7 +213,7 @@ async fn main() {
         let (tx, mut rx) = tokio::sync::mpsc::channel::<u32>(5);
 
         #[cfg(feature = "channels-console")]
-        let (tx, mut rx) = channels_console::instrument!((tx, rx), log = true);
+        let (tx, mut rx) = channels_console::channel!((tx, rx), log = true);
 
         tokio::spawn(async move {
             for j in 0..50 {

@@ -1,3 +1,4 @@
+#[allow(dead_code)]
 struct Actor {
     name: String,
 }
@@ -5,7 +6,7 @@ struct Actor {
 #[allow(unused_mut)]
 #[tokio::main]
 async fn main() {
-    let actor1 = Actor {
+    let _actor1 = Actor {
         name: "Actor 1".to_string(),
     };
 
@@ -15,15 +16,15 @@ async fn main() {
     let (txa, mut _rxa) = tokio::sync::mpsc::unbounded_channel::<i32>();
 
     #[cfg(feature = "channels-console")]
-    let (txa, _rxa) = channels_console::instrument!((txa, _rxa), log = true, label = actor1.name);
+    let (txa, _rxa) = channels_console::channel!((txa, _rxa), log = true, label = _actor1.name);
 
     let (txb, mut rxb) = tokio::sync::mpsc::channel::<i32>(10);
     #[cfg(feature = "channels-console")]
-    let (txb, mut rxb) = channels_console::instrument!((txb, rxb), label = "bounded-channel");
+    let (txb, mut rxb) = channels_console::channel!((txb, rxb), label = "bounded-channel");
 
     let (txc, rxc) = tokio::sync::oneshot::channel::<String>();
     #[cfg(feature = "channels-console")]
-    let (txc, rxc) = channels_console::instrument!((txc, rxc), label = "hello-there");
+    let (txc, rxc) = channels_console::channel!((txc, rxc), label = "hello-there");
 
     let sender_handle = tokio::spawn(async move {
         for i in 1..=3 {

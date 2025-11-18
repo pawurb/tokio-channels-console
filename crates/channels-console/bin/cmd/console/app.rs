@@ -10,7 +10,7 @@ use ratatui::{
 use std::time::{Duration, Instant};
 use std::{collections::HashMap, io};
 
-use super::http::{fetch_logs, fetch_metrics};
+use super::http::{fetch_channel_logs, fetch_channels};
 use super::views::bottom_bar::render_bottom_bar;
 use super::views::main_view::render_main_view;
 use super::views::top_bar::render_top_bar;
@@ -121,10 +121,10 @@ impl App {
             .and_then(|idx| self.stats.get(idx))
             .map(|stat| stat.id);
 
-        match fetch_metrics(&self.agent, self.metrics_port) {
-            Ok(metrics) => {
-                self.current_elapsed_ns = metrics.current_elapsed_ns;
-                self.stats = metrics.stats;
+        match fetch_channels(&self.agent, self.metrics_port) {
+            Ok(channels) => {
+                self.current_elapsed_ns = channels.current_elapsed_ns;
+                self.stats = channels.channels;
                 self.error = None;
                 self.last_successful_fetch = Some(Instant::now());
 
@@ -272,7 +272,7 @@ impl App {
         if let Some(selected) = self.table_state.selected() {
             if !self.stats.is_empty() && selected < self.stats.len() {
                 let channel_id = self.stats[selected].id;
-                if let Ok(logs) = fetch_logs(&self.agent, self.metrics_port, channel_id) {
+                if let Ok(logs) = fetch_channel_logs(&self.agent, self.metrics_port, channel_id) {
                     let received_map: std::collections::HashMap<u64, LogEntry> = logs
                         .received_logs
                         .iter()

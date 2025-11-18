@@ -179,7 +179,7 @@ pub mod tests {
         for _attempt in 0..4 {
             sleep(Duration::from_millis(500));
 
-            match ureq::get("http://127.0.0.1:6770/metrics").call() {
+            match ureq::get("http://127.0.0.1:6770/channels").call() {
                 Ok(mut response) => {
                     json_text = response
                         .body_mut()
@@ -208,11 +208,11 @@ pub mod tests {
         }
 
         // Test /logs/:id endpoint
-        let metrics: channels_console::MetricsJson =
-            serde_json::from_str(&json_text).expect("Failed to parse metrics JSON");
+        let channels: channels_console::ChannelsJson =
+            serde_json::from_str(&json_text).expect("Failed to parse channels JSON");
 
-        if let Some(first_channel) = metrics.stats.first() {
-            let logs_url = format!("http://127.0.0.1:6770/logs/{}", first_channel.id);
+        if let Some(first_channel) = channels.channels.first() {
+            let logs_url = format!("http://127.0.0.1:6770/channels/{}/logs", first_channel.id);
             let response = ureq::get(&logs_url)
                 .call()
                 .expect("Failed to call /logs/:id endpoint");
@@ -255,12 +255,12 @@ pub mod tests {
             "Actor 1",
             "Actor 1-2",
             "Actor 1-3",
-            "examples/iter_tokio.rs:37",
-            "examples/iter_tokio.rs:37-2",
-            "examples/iter_tokio.rs:37-3",
-            "examples/iter_tokio.rs:52",
-            "examples/iter_tokio.rs:52-2",
-            "examples/iter_tokio.rs:52-3",
+            "examples/iter_tokio.rs:38",
+            "examples/iter_tokio.rs:38-2",
+            "examples/iter_tokio.rs:38-3",
+            "examples/iter_tokio.rs:53",
+            "examples/iter_tokio.rs:53-2",
+            "examples/iter_tokio.rs:53-3",
         ];
 
         for expected in all_expected {

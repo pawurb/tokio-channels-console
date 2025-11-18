@@ -5,6 +5,7 @@ members = [
     "crates/channels-console-futures-test",
     "crates/channels-console-std-test",
     "crates/channels-console-crossbeam-test",
+    "crates/channels-console-streams-test",
 ]
 resolver = "2"
 

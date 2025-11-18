@@ -16,12 +16,12 @@ fn main() {
         let (tx_fast, mut rx_fast) = futures_channel::mpsc::unbounded::<String>();
         #[cfg(feature = "channels-console")]
         let (tx_fast, mut rx_fast) =
-            channels_console::instrument!((tx_fast, rx_fast), label = "fast-stream", log = true);
+            channels_console::channel!((tx_fast, rx_fast), label = "fast-stream", log = true);
 
         // Channel 2: Slow consumer - bounded(5), will back up!
         let (mut tx_slow, mut rx_slow) = futures_channel::mpsc::channel::<String>(5);
         #[cfg(feature = "channels-console")]
-        let (mut tx_slow, mut rx_slow) = channels_console::instrument!(
+        let (mut tx_slow, mut rx_slow) = channels_console::channel!(
             (tx_slow, rx_slow),
             label = "slow-consumer",
             capacity = 5,
@@ -31,7 +31,7 @@ fn main() {
         // Channel 3: Burst traffic - bounded(10), bursts every 3 seconds
         let (mut tx_burst, mut rx_burst) = futures_channel::mpsc::channel::<u64>(10);
         #[cfg(feature = "channels-console")]
-        let (mut tx_burst, mut rx_burst) = channels_console::instrument!(
+        let (mut tx_burst, mut rx_burst) = channels_console::channel!(
             (tx_burst, rx_burst),
             label = "burst-traffic",
             capacity = 10,
@@ -41,7 +41,7 @@ fn main() {
         // Channel 4: Gradual flow - bounded(20), increasing rate
         let (mut tx_gradual, mut rx_gradual) = futures_channel::mpsc::channel::<f64>(20);
         #[cfg(feature = "channels-console")]
-        let (mut tx_gradual, mut rx_gradual) = channels_console::instrument!(
+        let (mut tx_gradual, mut rx_gradual) = channels_console::channel!(
             (tx_gradual, rx_gradual),
             label = "gradual-flow",
             capacity = 20,
@@ -51,7 +51,7 @@ fn main() {
         // Channel 5: Dropped early - unbounded, producer dies at 10s
         let (tx_drop_early, mut rx_drop_early) = futures_channel::mpsc::unbounded::<bool>();
         #[cfg(feature = "channels-console")]
-        let (tx_drop_early, mut rx_drop_early) = channels_console::instrument!(
+        let (tx_drop_early, mut rx_drop_early) = channels_console::channel!(
             (tx_drop_early, rx_drop_early),
             label = "dropped-early",
             log = true
@@ -61,7 +61,7 @@ fn main() {
         let (mut tx_consumer_dies, mut rx_consumer_dies) =
             futures_channel::mpsc::channel::<Vec<u8>>(8);
         #[cfg(feature = "channels-console")]
-        let (mut tx_consumer_dies, mut rx_consumer_dies) = channels_console::instrument!(
+        let (mut tx_consumer_dies, mut rx_consumer_dies) = channels_console::channel!(
             (tx_consumer_dies, rx_consumer_dies),
             label = "consumer-dies",
             capacity = 8,
@@ -71,16 +71,13 @@ fn main() {
         // Channel 7: Steady stream - unbounded, consistent 500ms rate
         let (tx_steady, mut rx_steady) = futures_channel::mpsc::unbounded::<&str>();
         #[cfg(feature = "channels-console")]
-        let (tx_steady, mut rx_steady) = channels_console::instrument!(
-            (tx_steady, rx_steady),
-            label = "steady-stream",
-            log = true
-        );
+        let (tx_steady, mut rx_steady) =
+            channels_console::channel!((tx_steady, rx_steady), label = "steady-stream", log = true);
 
         // Channel 8: Oneshot early - fires at 5 seconds
         let (tx_oneshot_early, rx_oneshot_early) = futures_channel::oneshot::channel::<String>();
         #[cfg(feature = "channels-console")]
-        let (tx_oneshot_early, rx_oneshot_early) = channels_console::instrument!(
+        let (tx_oneshot_early, rx_oneshot_early) = channels_console::channel!(
             (tx_oneshot_early, rx_oneshot_early),
             label = "oneshot-early",
             log = true
@@ -89,7 +86,7 @@ fn main() {
         // Channel 9: Oneshot mid - fires at 15 seconds
         let (tx_oneshot_mid, rx_oneshot_mid) = futures_channel::oneshot::channel::<u32>();
         #[cfg(feature = "channels-console")]
-        let (tx_oneshot_mid, rx_oneshot_mid) = channels_console::instrument!(
+        let (tx_oneshot_mid, rx_oneshot_mid) = channels_console::channel!(
             (tx_oneshot_mid, rx_oneshot_mid),
             label = "oneshot-mid",
             log = true
@@ -98,7 +95,7 @@ fn main() {
         // Channel 10: Oneshot late - fires at 25 seconds
         let (tx_oneshot_late, rx_oneshot_late) = futures_channel::oneshot::channel::<i64>();
         #[cfg(feature = "channels-console")]
-        let (tx_oneshot_late, rx_oneshot_late) = channels_console::instrument!(
+        let (tx_oneshot_late, rx_oneshot_late) = channels_console::channel!(
             (tx_oneshot_late, rx_oneshot_late),
             label = "oneshot-late",
             log = true
@@ -109,7 +106,7 @@ fn main() {
             let (mut tx, mut rx) = futures_channel::mpsc::channel::<u32>(5);
 
             #[cfg(feature = "channels-console")]
-            let (mut tx, mut rx) = channels_console::instrument!((tx, rx), capacity = 5);
+            let (mut tx, mut rx) = channels_console::channel!((tx, rx), capacity = 5);
 
             smol::spawn(async move {
                 for j in 0..5 {

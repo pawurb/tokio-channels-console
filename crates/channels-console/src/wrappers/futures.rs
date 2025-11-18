@@ -6,7 +6,7 @@ use std::mem;
 use std::sync::atomic::Ordering;
 
 use crate::RT;
-use crate::{init_stats_state, ChannelType, StatsEvent, CHANNEL_ID_COUNTER};
+use crate::{init_channels_state, ChannelEvent, ChannelType, CHANNEL_ID_COUNTER};
 
 /// Internal implementation for wrapping bounded futures channels with optional logging.
 fn wrap_channel_impl<T, F>(
@@ -26,12 +26,12 @@ where
     let (outer_tx, mut to_inner_rx) = mpsc::channel::<T>(capacity);
     let (mut from_inner_tx, outer_rx) = mpsc::channel::<T>(capacity);
 
-    let (stats_tx, _) = init_stats_state();
+    let (stats_tx, _) = init_channels_state();
 
     // Generate unique ID for this channel
     let id = CHANNEL_ID_COUNTER.fetch_add(1, Ordering::Relaxed);
 
-    let _ = stats_tx.send(StatsEvent::Created {
+    let _ = stats_tx.send(ChannelEvent::Created {
         id,
         source,
         display_label: label,
@@ -59,7 +59,7 @@ where
                                 to_inner_rx.close();
                                 break;
                             }
-                            let _ = stats_tx_send.send(StatsEvent::MessageSent {
+                            let _ = stats_tx_send.send(ChannelEvent::MessageSent {
                                 id,
                                 log,
                                 timestamp: std::time::Instant::now(),
@@ -76,7 +76,7 @@ where
             }
         }
         // Channel is closed
-        let _ = stats_tx_send.send(StatsEvent::Closed { id });
+        let _ = stats_tx_send.send(ChannelEvent::Closed { id });
     });
 
     // Forward inner -> outer (proxy the recv path)
@@ -84,7 +84,7 @@ where
         use futures_util::stream::StreamExt;
         while let Some(msg) = inner_rx.next().await {
             if from_inner_tx.send(msg).await.is_ok() {
-                let _ = stats_tx_recv.send(StatsEvent::MessageReceived {
+                let _ = stats_tx_recv.send(ChannelEvent::MessageReceived {
                     id,
                     timestamp: std::time::Instant::now(),
                 });
@@ -95,7 +95,7 @@ where
             }
         }
         // Channel is closed (either inner sender dropped or outer receiver closed)
-        let _ = stats_tx_recv.send(StatsEvent::Closed { id });
+        let _ = stats_tx_recv.send(ChannelEvent::Closed { id });
     });
 
     (outer_tx, outer_rx)
@@ -141,12 +141,12 @@ where
     let (outer_tx, mut to_inner_rx) = mpsc::unbounded::<T>();
     let (from_inner_tx, outer_rx) = mpsc::unbounded::<T>();
 
-    let (stats_tx, _) = init_stats_state();
+    let (stats_tx, _) = init_channels_state();
 
     // Generate unique ID for this channel
     let id = CHANNEL_ID_COUNTER.fetch_add(1, Ordering::Relaxed);
 
-    let _ = stats_tx.send(StatsEvent::Created {
+    let _ = stats_tx.send(ChannelEvent::Created {
         id,
         source,
         display_label: label,
@@ -174,7 +174,7 @@ where
                                 to_inner_rx.close();
                                 break;
                             }
-                            let _ = stats_tx_send.send(StatsEvent::MessageSent {
+                            let _ = stats_tx_send.send(ChannelEvent::MessageSent {
                                 id,
                                 log,
                                 timestamp: std::time::Instant::now(),
@@ -191,7 +191,7 @@ where
             }
         }
         // Channel is closed
-        let _ = stats_tx_send.send(StatsEvent::Closed { id });
+        let _ = stats_tx_send.send(ChannelEvent::Closed { id });
     });
 
     // Forward inner -> outer (proxy the recv path)
@@ -199,7 +199,7 @@ where
         use futures_util::stream::StreamExt;
         while let Some(msg) = inner_rx.next().await {
             if from_inner_tx.unbounded_send(msg).is_ok() {
-                let _ = stats_tx_recv.send(StatsEvent::MessageReceived {
+                let _ = stats_tx_recv.send(ChannelEvent::MessageReceived {
                     id,
                     timestamp: std::time::Instant::now(),
                 });
@@ -210,7 +210,7 @@ where
             }
         }
         // Channel is closed (either inner sender dropped or outer receiver closed)
-        let _ = stats_tx_recv.send(StatsEvent::Closed { id });
+        let _ = stats_tx_recv.send(ChannelEvent::Closed { id });
     });
 
     (outer_tx, outer_rx)
@@ -251,12 +251,12 @@ where
     let (outer_tx, outer_rx_proxy) = oneshot::channel::<T>();
     let (inner_tx_proxy, outer_rx) = oneshot::channel::<T>();
 
-    let (stats_tx, _) = init_stats_state();
+    let (stats_tx, _) = init_channels_state();
 
     // Generate unique ID for this channel
     let id = CHANNEL_ID_COUNTER.fetch_add(1, Ordering::Relaxed);
 
-    let _ = stats_tx.send(StatsEvent::Created {
+    let _ = stats_tx.send(ChannelEvent::Created {
         id,
         source,
         display_label: label,
@@ -281,7 +281,7 @@ where
                 match msg {
                     Ok(msg) => {
                         if inner_tx_proxy.send(msg).is_ok() {
-                            let _ = stats_tx_recv.send(StatsEvent::MessageReceived {
+                            let _ = stats_tx_recv.send(ChannelEvent::MessageReceived {
                                 id,
                                 timestamp: std::time::Instant::now(),
                             });
@@ -309,7 +309,7 @@ where
         }
         // Only send Closed if message was not successfully received
         if !message_received {
-            let _ = stats_tx_recv.send(StatsEvent::Closed { id });
+            let _ = stats_tx_recv.send(ChannelEvent::Closed { id });
         }
     });
 
@@ -322,12 +322,12 @@ where
                     Ok(msg) => {
                         let log = get_msg_log(&msg);
                         if inner_tx.send(msg).is_ok() {
-                            let _ = stats_tx_send.send(StatsEvent::MessageSent {
+                            let _ = stats_tx_send.send(ChannelEvent::MessageSent {
                                 id,
                                 log,
                                 timestamp: std::time::Instant::now(),
                             });
-                            let _ = stats_tx_send.send(StatsEvent::Notified { id });
+                            let _ = stats_tx_send.send(ChannelEvent::Notified { id });
                             message_sent = true;
                         }
                     }
@@ -342,7 +342,7 @@ where
         }
         // Only send Closed if message was not successfully sent
         if !message_sent {
-            let _ = stats_tx_send.send(StatsEvent::Closed { id });
+            let _ = stats_tx_send.send(ChannelEvent::Closed { id });
         }
     });
 

@@ -11,16 +11,16 @@ fn main() {
 
         let (txa, mut _rxa) = futures_channel::mpsc::unbounded::<i32>();
         #[cfg(feature = "channels-console")]
-        let (txa, mut _rxa) = channels_console::instrument!((txa, _rxa), label = "unbounded");
+        let (txa, mut _rxa) = channels_console::channel!((txa, _rxa), label = "unbounded");
 
         let (mut txb, mut rxb) = futures_channel::mpsc::channel::<i32>(10);
         #[cfg(feature = "channels-console")]
         let (mut txb, mut rxb) =
-            channels_console::instrument!((txb, rxb), label = "bounded", capacity = 10);
+            channels_console::channel!((txb, rxb), label = "bounded", capacity = 10);
 
         let (txc, rxc) = futures_channel::oneshot::channel::<String>();
         #[cfg(feature = "channels-console")]
-        let (txc, rxc) = channels_console::instrument!((txc, rxc), label = "oneshot");
+        let (txc, rxc) = channels_console::channel!((txc, rxc), label = "oneshot");
 
         let sender_handle = smol::spawn(async move {
             for i in 1..=3 {

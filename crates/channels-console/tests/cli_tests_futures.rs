@@ -178,7 +178,7 @@ pub mod tests {
         for _attempt in 0..4 {
             sleep(Duration::from_millis(500));
 
-            match ureq::get("http://127.0.0.1:6770/metrics").call() {
+            match ureq::get("http://127.0.0.1:6770/channels").call() {
                 Ok(mut response) => {
                     json_text = response
                         .body_mut()
@@ -212,12 +212,12 @@ pub mod tests {
             );
         }
 
-        // Test /logs/:id endpoint
-        let metrics: channels_console::MetricsJson =
-            serde_json::from_str(&json_text).expect("Failed to parse metrics JSON");
+        // Test /channels/:id/logs endpoint
+        let channels: channels_console::ChannelsJson =
+            serde_json::from_str(&json_text).expect("Failed to parse channels JSON");
 
-        if let Some(first_channel) = metrics.stats.first() {
-            let logs_url = format!("http://127.0.0.1:6770/logs/{}", first_channel.id);
+        if let Some(first_channel) = channels.channels.first() {
+            let logs_url = format!("http://127.0.0.1:6770/channels/{}/logs", first_channel.id);
             let response = ureq::get(&logs_url)
                 .call()
                 .expect("Failed to call /logs/:id endpoint");
@@ -225,7 +225,7 @@ pub mod tests {
             assert_eq!(
                 response.status(),
                 200,
-                "Expected status 200 for /logs/:id endpoint"
+                "Expected status 200 for /channels/:id/logs endpoint"
             );
         }
 
@@ -263,9 +263,9 @@ pub mod tests {
             "bounded",
             "bounded-2",
             "bounded-3",
-            "examples/iter_futures.rs:58",
-            "examples/iter_futures.rs:58-2",
-            "examples/iter_futures.rs:58-3",
+            "examples/iter_futures.rs:59",
+            "examples/iter_futures.rs:59-2",
+            "examples/iter_futures.rs:59-3",
         ];
 
         for expected in all_expected {
