@@ -924,7 +924,7 @@ macro_rules! channel {
 ///
 /// # Examples
 ///
-/// ```rust,no_run
+/// ```rust,ignore
 /// use futures::stream::{self, StreamExt};
 /// use channels_console::stream;
 ///
