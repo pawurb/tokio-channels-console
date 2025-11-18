@@ -204,45 +204,8 @@ pub(crate) struct StreamStats {
     pub(crate) items_yielded: u64,
     pub(crate) type_name: &'static str,
     pub(crate) type_size: usize,
-    pub(crate) yielded_logs: VecDeque<LogEntry>,
+    pub(crate) logs: VecDeque<LogEntry>,
     pub(crate) iter: u32,
-}
-
-/// Unified enum for channel or stream statistics.
-#[derive(Debug, Clone)]
-pub(crate) enum Stats {
-    Channel(ChannelStats),
-    Stream(StreamStats),
-}
-
-impl Stats {
-    pub fn id(&self) -> u64 {
-        match self {
-            Stats::Channel(c) => c.id,
-            Stats::Stream(s) => s.id,
-        }
-    }
-
-    pub fn source(&self) -> &'static str {
-        match self {
-            Stats::Channel(c) => c.source,
-            Stats::Stream(s) => s.source,
-        }
-    }
-
-    pub fn label(&self) -> Option<&str> {
-        match self {
-            Stats::Channel(c) => c.label.as_deref(),
-            Stats::Stream(s) => s.label.as_deref(),
-        }
-    }
-
-    pub fn iter(&self) -> u32 {
-        match self {
-            Stats::Channel(c) => c.iter,
-            Stats::Stream(s) => s.iter,
-        }
-    }
 }
 
 /// Wrapper for channels-only JSON response
@@ -419,15 +382,15 @@ impl StreamStats {
             items_yielded: 0,
             type_name,
             type_size,
-            yielded_logs: VecDeque::new(),
+            logs: VecDeque::new(),
             iter,
         }
     }
 }
 
-/// Events sent to the background statistics collection thread.
+/// Events sent to the background channel statistics collection thread.
 #[derive(Debug)]
-pub(crate) enum StatsEvent {
+pub(crate) enum ChannelEvent {
     Created {
         id: u64,
         source: &'static str,
@@ -452,33 +415,46 @@ pub(crate) enum StatsEvent {
     Notified {
         id: u64,
     },
-    // Stream events
-    StreamCreated {
+}
+
+/// Events sent to the background stream statistics collection thread.
+#[derive(Debug)]
+pub(crate) enum StreamEvent {
+    Created {
         id: u64,
         source: &'static str,
         display_label: Option<String>,
         type_name: &'static str,
         type_size: usize,
     },
-    StreamItemYielded {
+    Yielded {
         id: u64,
         log: Option<String>,
         timestamp: Instant,
     },
-    StreamCompleted {
+    Completed {
         id: u64,
     },
 }
 
-type StatsState = (CbSender<StatsEvent>, Arc<RwLock<HashMap<u64, Stats>>>);
+type ChannelStatsState = (
+    CbSender<ChannelEvent>,
+    Arc<RwLock<HashMap<u64, ChannelStats>>>,
+);
+type StreamStatsState = (
+    CbSender<StreamEvent>,
+    Arc<RwLock<HashMap<u64, StreamStats>>>,
+);
 
-/// Global state for statistics collection.
-static STATS_STATE: OnceLock<StatsState> = OnceLock::new();
+static CHANNELS_STATE: OnceLock<ChannelStatsState> = OnceLock::new();
+
+static STREAMS_STATE: OnceLock<StreamStatsState> = OnceLock::new();
 
 static START_TIME: OnceLock<Instant> = OnceLock::new();
 
-/// Global counter for assigning unique IDs to channels.
 pub(crate) static CHANNEL_ID_COUNTER: AtomicU64 = AtomicU64::new(0);
+
+pub(crate) static STREAM_ID_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 const DEFAULT_LOG_LIMIT: usize = 50;
 
@@ -489,14 +465,14 @@ fn get_log_limit() -> usize {
         .unwrap_or(DEFAULT_LOG_LIMIT)
 }
 
-/// Initialize the statistics collection system (called on first instrumented channel).
+/// Initialize the channel statistics collection system (called on first instrumented channel).
 /// Returns a reference to the global state.
-fn init_stats_state() -> &'static StatsState {
-    STATS_STATE.get_or_init(|| {
+pub(crate) fn init_channels_state() -> &'static ChannelStatsState {
+    CHANNELS_STATE.get_or_init(|| {
         START_TIME.get_or_init(Instant::now);
 
-        let (tx, rx) = unbounded::<StatsEvent>();
-        let stats_map = Arc::new(RwLock::new(HashMap::<u64, Stats>::new()));
+        let (tx, rx) = unbounded::<ChannelEvent>();
+        let stats_map = Arc::new(RwLock::new(HashMap::<u64, ChannelStats>::new()));
         let stats_map_clone = Arc::clone(&stats_map);
 
         std::thread::Builder::new()
@@ -505,7 +481,7 @@ fn init_stats_state() -> &'static StatsState {
                 while let Ok(event) = rx.recv() {
                     let mut stats = stats_map_clone.write().unwrap();
                     match event {
-                        StatsEvent::Created {
+                        ChannelEvent::Created {
                             id,
                             source,
                             display_label,
@@ -514,12 +490,11 @@ fn init_stats_state() -> &'static StatsState {
                             type_size,
                         } => {
                             // Count existing items with the same source location
-                            let iter =
-                                stats.values().filter(|s| s.source() == source).count() as u32;
+                            let iter = stats.values().filter(|s| s.source == source).count() as u32;
 
                             stats.insert(
                                 id,
-                                Stats::Channel(ChannelStats::new(
+                                ChannelStats::new(
                                     id,
                                     source,
                                     display_label,
@@ -527,34 +502,11 @@ fn init_stats_state() -> &'static StatsState {
                                     type_name,
                                     type_size,
                                     iter,
-                                )),
+                                ),
                             );
                         }
-                        StatsEvent::StreamCreated {
-                            id,
-                            source,
-                            display_label,
-                            type_name,
-                            type_size,
-                        } => {
-                            // Count existing items with the same source location
-                            let iter =
-                                stats.values().filter(|s| s.source() == source).count() as u32;
-
-                            stats.insert(
-                                id,
-                                Stats::Stream(StreamStats::new(
-                                    id,
-                                    source,
-                                    display_label,
-                                    type_name,
-                                    type_size,
-                                    iter,
-                                )),
-                            );
-                        }
-                        StatsEvent::MessageSent { id, log, timestamp } => {
-                            if let Some(Stats::Channel(channel_stats)) = stats.get_mut(&id) {
+                        ChannelEvent::MessageSent { id, log, timestamp } => {
+                            if let Some(channel_stats) = stats.get_mut(&id) {
                                 channel_stats.sent_count += 1;
                                 channel_stats.update_state();
 
@@ -569,8 +521,8 @@ fn init_stats_state() -> &'static StatsState {
                                 ));
                             }
                         }
-                        StatsEvent::MessageReceived { id, timestamp } => {
-                            if let Some(Stats::Channel(channel_stats)) = stats.get_mut(&id) {
+                        ChannelEvent::MessageReceived { id, timestamp } => {
+                            if let Some(channel_stats) = stats.get_mut(&id) {
                                 channel_stats.received_count += 1;
                                 channel_stats.update_state();
 
@@ -585,41 +537,14 @@ fn init_stats_state() -> &'static StatsState {
                                 ));
                             }
                         }
-                        StatsEvent::Closed { id } => {
-                            if let Some(stat) = stats.get_mut(&id) {
-                                match stat {
-                                    Stats::Channel(channel_stats) => {
-                                        channel_stats.state = ChannelState::Closed;
-                                    }
-                                    Stats::Stream(stream_stats) => {
-                                        stream_stats.state = ChannelState::Closed;
-                                    }
-                                }
+                        ChannelEvent::Closed { id } => {
+                            if let Some(channel_stats) = stats.get_mut(&id) {
+                                channel_stats.state = ChannelState::Closed;
                             }
                         }
-                        StatsEvent::Notified { id } => {
-                            if let Some(Stats::Channel(channel_stats)) = stats.get_mut(&id) {
+                        ChannelEvent::Notified { id } => {
+                            if let Some(channel_stats) = stats.get_mut(&id) {
                                 channel_stats.state = ChannelState::Notified;
-                            }
-                        }
-                        StatsEvent::StreamItemYielded { id, log, timestamp } => {
-                            if let Some(Stats::Stream(stream_stats)) = stats.get_mut(&id) {
-                                stream_stats.items_yielded += 1;
-
-                                let limit = get_log_limit();
-                                if stream_stats.yielded_logs.len() >= limit {
-                                    stream_stats.yielded_logs.pop_front();
-                                }
-                                stream_stats.yielded_logs.push_back(LogEntry::new(
-                                    stream_stats.items_yielded,
-                                    timestamp,
-                                    log,
-                                ));
-                            }
-                        }
-                        StatsEvent::StreamCompleted { id } => {
-                            if let Some(Stats::Stream(stream_stats)) = stats.get_mut(&id) {
-                                stream_stats.state = ChannelState::Closed;
                             }
                         }
                     }
@@ -638,6 +563,73 @@ fn init_stats_state() -> &'static StatsState {
         std::thread::spawn(move || {
             start_metrics_server(&addr);
         });
+
+        (tx, stats_map)
+    })
+}
+
+/// Initialize the stream statistics collection system (called on first instrumented stream).
+/// Returns a reference to the global state.
+pub(crate) fn init_streams_state() -> &'static StreamStatsState {
+    STREAMS_STATE.get_or_init(|| {
+        START_TIME.get_or_init(Instant::now);
+
+        let (tx, rx) = unbounded::<StreamEvent>();
+        let stats_map = Arc::new(RwLock::new(HashMap::<u64, StreamStats>::new()));
+        let stats_map_clone = Arc::clone(&stats_map);
+
+        std::thread::Builder::new()
+            .name("stream-stats-collector".into())
+            .spawn(move || {
+                while let Ok(event) = rx.recv() {
+                    let mut stats = stats_map_clone.write().unwrap();
+                    match event {
+                        StreamEvent::Created {
+                            id,
+                            source,
+                            display_label,
+                            type_name,
+                            type_size,
+                        } => {
+                            // Count existing items with the same source location
+                            let iter = stats.values().filter(|s| s.source == source).count() as u32;
+
+                            stats.insert(
+                                id,
+                                StreamStats::new(
+                                    id,
+                                    source,
+                                    display_label,
+                                    type_name,
+                                    type_size,
+                                    iter,
+                                ),
+                            );
+                        }
+                        StreamEvent::Yielded { id, log, timestamp } => {
+                            if let Some(stream_stats) = stats.get_mut(&id) {
+                                stream_stats.items_yielded += 1;
+
+                                let limit = get_log_limit();
+                                if stream_stats.logs.len() >= limit {
+                                    stream_stats.logs.pop_front();
+                                }
+                                stream_stats.logs.push_back(LogEntry::new(
+                                    stream_stats.items_yielded,
+                                    timestamp,
+                                    log,
+                                ));
+                            }
+                        }
+                        StreamEvent::Completed { id } => {
+                            if let Some(stream_stats) = stats.get_mut(&id) {
+                                stream_stats.state = ChannelState::Closed;
+                            }
+                        }
+                    }
+                }
+            })
+            .expect("Failed to spawn stream-stats-collector thread");
 
         (tx, stats_map)
     })
@@ -986,59 +978,70 @@ macro_rules! stream {
     }};
 }
 
-fn get_all_stats() -> HashMap<u64, Stats> {
-    if let Some((_, stats_map)) = STATS_STATE.get() {
+fn get_all_channel_stats() -> HashMap<u64, ChannelStats> {
+    if let Some((_, stats_map)) = CHANNELS_STATE.get() {
         stats_map.read().unwrap().clone()
     } else {
         HashMap::new()
     }
 }
 
-/// Compare two Stats for sorting.
+fn get_all_stream_stats() -> HashMap<u64, StreamStats> {
+    if let Some((_, stats_map)) = STREAMS_STATE.get() {
+        stats_map.read().unwrap().clone()
+    } else {
+        HashMap::new()
+    }
+}
+
+/// Compare two channel stats for sorting.
 /// Custom labels come first (sorted alphabetically), then auto-generated labels (sorted by source and iter).
-fn compare_stats(a: &Stats, b: &Stats) -> std::cmp::Ordering {
-    let a_has_label = a.label().is_some();
-    let b_has_label = b.label().is_some();
+fn compare_channel_stats(a: &ChannelStats, b: &ChannelStats) -> std::cmp::Ordering {
+    let a_has_label = a.label.is_some();
+    let b_has_label = b.label.is_some();
 
     match (a_has_label, b_has_label) {
         (true, false) => std::cmp::Ordering::Less,
         (false, true) => std::cmp::Ordering::Greater,
         (true, true) => a
-            .label()
+            .label
+            .as_ref()
             .unwrap()
-            .cmp(b.label().unwrap())
-            .then_with(|| a.iter().cmp(&b.iter())),
-        (false, false) => a
-            .source()
-            .cmp(b.source())
-            .then_with(|| a.iter().cmp(&b.iter())),
+            .cmp(b.label.as_ref().unwrap())
+            .then_with(|| a.iter.cmp(&b.iter)),
+        (false, false) => a.source.cmp(b.source).then_with(|| a.iter.cmp(&b.iter)),
     }
 }
 
-pub(crate) fn get_sorted_stats() -> Vec<Stats> {
-    let mut stats: Vec<Stats> = get_all_stats().into_values().collect();
-    stats.sort_by(compare_stats);
-    stats
+/// Compare two stream stats for sorting.
+/// Custom labels come first (sorted alphabetically), then auto-generated labels (sorted by source and iter).
+fn compare_stream_stats(a: &StreamStats, b: &StreamStats) -> std::cmp::Ordering {
+    let a_has_label = a.label.is_some();
+    let b_has_label = b.label.is_some();
+
+    match (a_has_label, b_has_label) {
+        (true, false) => std::cmp::Ordering::Less,
+        (false, true) => std::cmp::Ordering::Greater,
+        (true, true) => a
+            .label
+            .as_ref()
+            .unwrap()
+            .cmp(b.label.as_ref().unwrap())
+            .then_with(|| a.iter.cmp(&b.iter)),
+        (false, false) => a.source.cmp(b.source).then_with(|| a.iter.cmp(&b.iter)),
+    }
 }
 
 pub(crate) fn get_sorted_channel_stats() -> Vec<ChannelStats> {
-    get_sorted_stats()
-        .into_iter()
-        .filter_map(|s| match s {
-            Stats::Channel(cs) => Some(cs),
-            _ => None,
-        })
-        .collect()
+    let mut stats: Vec<ChannelStats> = get_all_channel_stats().into_values().collect();
+    stats.sort_by(compare_channel_stats);
+    stats
 }
 
 pub(crate) fn get_sorted_stream_stats() -> Vec<StreamStats> {
-    get_sorted_stats()
-        .into_iter()
-        .filter_map(|s| match s {
-            Stats::Stream(ss) => Some(ss),
-            _ => None,
-        })
-        .collect()
+    let mut stats: Vec<StreamStats> = get_all_stream_stats().into_values().collect();
+    stats.sort_by(compare_stream_stats);
+    stats
 }
 
 pub(crate) fn get_channels_json() -> ChannelsJson {
@@ -1118,43 +1121,36 @@ pub struct StreamLogs {
 
 pub(crate) fn get_channel_logs(channel_id: &str) -> Option<ChannelLogs> {
     let id = channel_id.parse::<u64>().ok()?;
-    let stats = get_all_stats();
-    stats.get(&id).and_then(|stat| match stat {
-        Stats::Channel(channel_stats) => {
-            let mut sent_logs: Vec<LogEntry> = channel_stats.sent_logs.iter().cloned().collect();
-            let mut received_logs: Vec<LogEntry> =
-                channel_stats.received_logs.iter().cloned().collect();
+    let stats = get_all_channel_stats();
+    stats.get(&id).map(|channel_stats| {
+        let mut sent_logs: Vec<LogEntry> = channel_stats.sent_logs.iter().cloned().collect();
+        let mut received_logs: Vec<LogEntry> =
+            channel_stats.received_logs.iter().cloned().collect();
 
-            // Sort by index descending (most recent first)
-            sent_logs.sort_by(|a, b| b.index.cmp(&a.index));
-            received_logs.sort_by(|a, b| b.index.cmp(&a.index));
+        // Sort by index descending (most recent first)
+        sent_logs.sort_by(|a, b| b.index.cmp(&a.index));
+        received_logs.sort_by(|a, b| b.index.cmp(&a.index));
 
-            Some(ChannelLogs {
-                id: channel_id.to_string(),
-                sent_logs,
-                received_logs,
-            })
+        ChannelLogs {
+            id: channel_id.to_string(),
+            sent_logs,
+            received_logs,
         }
-        _ => None,
     })
 }
 
 pub(crate) fn get_stream_logs(stream_id: &str) -> Option<StreamLogs> {
     let id = stream_id.parse::<u64>().ok()?;
-    let stats = get_all_stats();
-    stats.get(&id).and_then(|stat| match stat {
-        Stats::Stream(stream_stats) => {
-            let mut yielded_logs: Vec<LogEntry> =
-                stream_stats.yielded_logs.iter().cloned().collect();
+    let stats = get_all_stream_stats();
+    stats.get(&id).map(|stream_stats| {
+        let mut yielded_logs: Vec<LogEntry> = stream_stats.logs.iter().cloned().collect();
 
-            // Sort by index descending (most recent first)
-            yielded_logs.sort_by(|a, b| b.index.cmp(&a.index));
+        // Sort by index descending (most recent first)
+        yielded_logs.sort_by(|a, b| b.index.cmp(&a.index));
 
-            Some(StreamLogs {
-                id: stream_id.to_string(),
-                yielded_logs,
-            })
+        StreamLogs {
+            id: stream_id.to_string(),
+            yielded_logs,
         }
-        _ => None,
     })
 }

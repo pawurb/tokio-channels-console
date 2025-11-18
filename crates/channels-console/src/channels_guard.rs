@@ -3,8 +3,8 @@ use std::time::Instant;
 use prettytable::{Cell, Row, Table};
 
 use crate::{
-    format_bytes, get_combined_json, get_sorted_stats, resolve_label, Format, InstrumentedType,
-    Stats,
+    format_bytes, get_combined_json, get_sorted_channel_stats, get_sorted_stream_stats,
+    resolve_label, Format, InstrumentedType,
 };
 
 /// Builder for creating a ChannelsGuard with custom configuration.
@@ -119,26 +119,16 @@ impl Default for ChannelsGuard {
 impl Drop for ChannelsGuard {
     fn drop(&mut self) {
         let elapsed = self.start_time.elapsed();
-        let stats = get_sorted_stats();
+        let channels = get_sorted_channel_stats();
+        let streams = get_sorted_stream_stats();
 
-        if stats.is_empty() {
+        if channels.is_empty() && streams.is_empty() {
             println!("\nNo instrumented channels or streams found.");
             return;
         }
 
         match self.format {
             Format::Table => {
-                // Separate channels and streams
-                let mut channels = Vec::new();
-                let mut streams = Vec::new();
-
-                for stat in stats {
-                    match stat {
-                        Stats::Channel(cs) => channels.push(cs),
-                        Stats::Stream(ss) => streams.push(ss),
-                    }
-                }
-
                 println!(
                     "\n=== Statistics (runtime: {:.2}s) ===",
                     elapsed.as_secs_f64()

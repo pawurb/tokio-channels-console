@@ -1,4 +1,4 @@
-use crate::{init_stats_state, StatsEvent, CHANNEL_ID_COUNTER};
+use crate::{init_streams_state, StreamEvent, STREAM_ID_COUNTER};
 use crossbeam_channel::Sender as CbSender;
 use futures_util::Stream;
 use std::pin::Pin;
@@ -12,7 +12,7 @@ use std::time::Instant;
 /// while recording statistics about yielded items.
 pub struct InstrumentedStream<S> {
     inner: S,
-    stats_tx: CbSender<StatsEvent>,
+    stats_tx: CbSender<StreamEvent>,
     id: u64,
 }
 
@@ -27,11 +27,11 @@ impl<S> InstrumentedStream<S> {
     where
         S: Stream,
     {
-        let (stats_tx, _) = init_stats_state();
-        let id = CHANNEL_ID_COUNTER.fetch_add(1, Ordering::Relaxed);
+        let (stats_tx, _) = init_streams_state();
+        let id = STREAM_ID_COUNTER.fetch_add(1, Ordering::Relaxed);
 
         // Send stream creation event
-        let _ = stats_tx.send(StatsEvent::StreamCreated {
+        let _ = stats_tx.send(StreamEvent::Created {
             id,
             source,
             display_label: label,
@@ -59,7 +59,7 @@ impl<S: Stream> Stream for InstrumentedStream<S> {
 
         match inner.poll_next(cx) {
             Poll::Ready(Some(item)) => {
-                let _ = this.stats_tx.send(StatsEvent::StreamItemYielded {
+                let _ = this.stats_tx.send(StreamEvent::Yielded {
                     id: this.id,
                     log: None,
                     timestamp: Instant::now(),
@@ -67,9 +67,7 @@ impl<S: Stream> Stream for InstrumentedStream<S> {
                 Poll::Ready(Some(item))
             }
             Poll::Ready(None) => {
-                let _ = this
-                    .stats_tx
-                    .send(StatsEvent::StreamCompleted { id: this.id });
+                let _ = this.stats_tx.send(StreamEvent::Completed { id: this.id });
                 Poll::Ready(None)
             }
             Poll::Pending => Poll::Pending,
@@ -82,7 +80,7 @@ impl<S: Stream> Stream for InstrumentedStream<S> {
 /// This variant captures the Debug representation of yielded items.
 pub struct InstrumentedStreamLog<S> {
     inner: S,
-    stats_tx: CbSender<StatsEvent>,
+    stats_tx: CbSender<StreamEvent>,
     id: u64,
 }
 
@@ -92,11 +90,11 @@ impl<S> InstrumentedStreamLog<S> {
     where
         S: Stream,
     {
-        let (stats_tx, _) = init_stats_state();
-        let id = CHANNEL_ID_COUNTER.fetch_add(1, Ordering::Relaxed);
+        let (stats_tx, _) = init_streams_state();
+        let id = STREAM_ID_COUNTER.fetch_add(1, Ordering::Relaxed);
 
         // Send stream creation event
-        let _ = stats_tx.send(StatsEvent::StreamCreated {
+        let _ = stats_tx.send(StreamEvent::Created {
             id,
             source,
             display_label: label,
@@ -127,7 +125,7 @@ where
             Poll::Ready(Some(item)) => {
                 let log_msg = format!("{:?}", item);
                 dbg!(&log_msg);
-                let _ = this.stats_tx.send(StatsEvent::StreamItemYielded {
+                let _ = this.stats_tx.send(StreamEvent::Yielded {
                     id: this.id,
                     log: Some(log_msg),
                     timestamp: Instant::now(),
@@ -135,9 +133,7 @@ where
                 Poll::Ready(Some(item))
             }
             Poll::Ready(None) => {
-                let _ = this
-                    .stats_tx
-                    .send(StatsEvent::StreamCompleted { id: this.id });
+                let _ = this.stats_tx.send(StreamEvent::Completed { id: this.id });
                 Poll::Ready(None)
             }
             Poll::Pending => Poll::Pending,
