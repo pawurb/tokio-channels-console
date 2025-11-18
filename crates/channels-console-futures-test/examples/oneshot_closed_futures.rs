@@ -9,7 +9,7 @@ fn main() {
 
         let (tx, rx) = futures_channel::oneshot::channel::<String>();
         #[cfg(feature = "channels-console")]
-        let (tx, rx) = channels_console::instrument!((tx, rx), label = "oneshot-closed");
+        let (tx, rx) = channels_console::channel!((tx, rx), label = "oneshot-closed");
 
         drop(rx);
 

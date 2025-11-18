@@ -1,4 +1,4 @@
-use crate::{get_channel_logs, get_metrics_json};
+use crate::{get_channel_logs, get_channels_json, get_stream_logs, get_streams_json};
 use serde::Serialize;
 use std::fmt::Display;
 use tiny_http::{Header, Request, Response, Server};
@@ -22,23 +22,52 @@ fn handle_request(request: Request) {
     let path = request.url().split('?').next().unwrap_or("/");
 
     match path {
-        "/metrics" => {
-            let metrics = get_metrics_json();
-            respond_json(request, &metrics);
+        "/channels" => {
+            let channels = get_channels_json();
+            respond_json(request, &channels);
+        }
+        "/streams" => {
+            let streams = get_streams_json();
+            respond_json(request, &streams);
         }
         _ => {
-            if let Some(id_str) = path.strip_prefix("/logs/") {
-                match id_str.parse::<u64>() {
-                    Ok(channel_id) => {
-                        let channel_id_str = channel_id.to_string();
-                        match get_channel_logs(&channel_id_str) {
-                            Some(logs) => respond_json(request, &logs),
-                            None => respond_error(request, 404, "Channel not found"),
+            // Handle /channels/<id>/logs
+            if let Some(rest) = path.strip_prefix("/channels/") {
+                if let Some(id_str) = rest.strip_suffix("/logs") {
+                    match id_str.parse::<u64>() {
+                        Ok(channel_id) => {
+                            let channel_id_str = channel_id.to_string();
+                            match get_channel_logs(&channel_id_str) {
+                                Some(logs) => respond_json(request, &logs),
+                                None => respond_error(request, 404, "Channel not found"),
+                            }
+                        }
+                        Err(_) => respond_error(
+                            request,
+                            400,
+                            "Invalid channel ID: must be a valid number",
+                        ),
+                    }
+                } else {
+                    respond_error(request, 404, "Not found");
+                }
+            // Handle /streams/<id>/logs
+            } else if let Some(rest) = path.strip_prefix("/streams/") {
+                if let Some(id_str) = rest.strip_suffix("/logs") {
+                    match id_str.parse::<u64>() {
+                        Ok(stream_id) => {
+                            let stream_id_str = stream_id.to_string();
+                            match get_stream_logs(&stream_id_str) {
+                                Some(logs) => respond_json(request, &logs),
+                                None => respond_error(request, 404, "Stream not found"),
+                            }
+                        }
+                        Err(_) => {
+                            respond_error(request, 400, "Invalid stream ID: must be a valid number")
                         }
                     }
-                    Err(_) => {
-                        respond_error(request, 400, "Invalid channel ID: must be a valid number")
-                    }
+                } else {
+                    respond_error(request, 404, "Not found");
                 }
             } else {
                 respond_error(request, 404, "Not found");

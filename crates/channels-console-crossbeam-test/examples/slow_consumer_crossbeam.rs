@@ -15,7 +15,7 @@ fn main() {
     let (tx, rx) = crossbeam_channel::bounded::<i32>(10);
     #[cfg(feature = "channels-console")]
     let (tx, rx) =
-        channels_console::instrument!((tx, rx), capacity = 10, label = "slow-consumer", log = true);
+        channels_console::channel!((tx, rx), capacity = 10, label = "slow-consumer", log = true);
 
     // Producer: sends every 10ms
     let producer_handle = thread::spawn(move || {

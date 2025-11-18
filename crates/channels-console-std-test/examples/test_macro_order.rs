@@ -8,24 +8,23 @@ fn main() {
     // Test: label first, then capacity
     let (tx1, rx1) = std::sync::mpsc::sync_channel::<i32>(10);
     #[cfg(feature = "channels-console")]
-    let (tx1, rx1) =
-        channels_console::instrument!((tx1, rx1), label = "label-first", capacity = 10);
+    let (tx1, rx1) = channels_console::channel!((tx1, rx1), label = "label-first", capacity = 10);
 
     // Test: capacity first, then label
     let (tx2, rx2) = std::sync::mpsc::sync_channel::<i32>(20);
     #[cfg(feature = "channels-console")]
     let (tx2, rx2) =
-        channels_console::instrument!((tx2, rx2), capacity = 20, label = "capacity-first");
+        channels_console::channel!((tx2, rx2), capacity = 20, label = "capacity-first");
 
     // Test: only label
     let (tx3, rx3) = std::sync::mpsc::channel::<i32>();
     #[cfg(feature = "channels-console")]
-    let (tx3, rx3) = channels_console::instrument!((tx3, rx3), label = "only-label");
+    let (tx3, rx3) = channels_console::channel!((tx3, rx3), label = "only-label");
 
     // Test: only capacity
     let (tx4, rx4) = std::sync::mpsc::sync_channel::<i32>(30);
     #[cfg(feature = "channels-console")]
-    let (tx4, rx4) = channels_console::instrument!((tx4, rx4), capacity = 30);
+    let (tx4, rx4) = channels_console::channel!((tx4, rx4), capacity = 30);
 
     thread::spawn(move || {
         tx1.send(1).unwrap();

@@ -16,7 +16,7 @@ fn main() {
 
         let (mut tx, mut rx) = futures_channel::mpsc::channel::<i32>(10);
         #[cfg(feature = "channels-console")]
-        let (mut tx, mut rx) = channels_console::instrument!(
+        let (mut tx, mut rx) = channels_console::channel!(
             (tx, rx),
             capacity = 10,
             label = "slow-consumer",

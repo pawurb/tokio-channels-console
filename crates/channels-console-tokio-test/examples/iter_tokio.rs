@@ -1,3 +1,4 @@
+#[allow(dead_code)]
 struct Actor {
     name: String,
 }
@@ -5,7 +6,7 @@ struct Actor {
 #[allow(unused_mut)]
 #[tokio::main]
 async fn main() {
-    let actor1 = Actor {
+    let _actor1 = Actor {
         name: "Actor 1".to_string(),
     };
 
@@ -19,7 +20,7 @@ async fn main() {
         let (tx, mut rx) = tokio::sync::mpsc::channel::<i32>(10);
 
         #[cfg(feature = "channels-console")]
-        let (tx, mut rx) = channels_console::instrument!((tx, rx), label = actor1.name.clone());
+        let (tx, mut rx) = channels_console::channel!((tx, rx), label = actor1.name.clone());
 
         println!("  - Created bounded channel {}", i);
 
@@ -34,7 +35,7 @@ async fn main() {
         let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<i32>();
 
         #[cfg(feature = "channels-console")]
-        let (tx, mut rx) = channels_console::instrument!((tx, rx));
+        let (tx, mut rx) = channels_console::channel!((tx, rx));
 
         println!("  - Created unbounded channel {}", i);
 
@@ -49,7 +50,7 @@ async fn main() {
         let (tx, rx) = tokio::sync::oneshot::channel::<String>();
 
         #[cfg(feature = "channels-console")]
-        let (tx, rx) = channels_console::instrument!((tx, rx));
+        let (tx, rx) = channels_console::channel!((tx, rx));
 
         println!("  - Created oneshot channel {}", i);
 

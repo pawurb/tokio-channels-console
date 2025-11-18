@@ -6,15 +6,15 @@ fn main() {
     let (txa, _rxa) = crossbeam_channel::unbounded::<i32>();
 
     #[cfg(feature = "channels-console")]
-    let (txa, _rxa) = channels_console::instrument!((txa, _rxa), log = true);
+    let (txa, _rxa) = channels_console::channel!((txa, _rxa), log = true);
 
     let (txb, rxb) = crossbeam_channel::bounded::<i32>(10);
     #[cfg(feature = "channels-console")]
-    let (txb, rxb) = channels_console::instrument!((txb, rxb), capacity = 10);
+    let (txb, rxb) = channels_console::channel!((txb, rxb), capacity = 10);
 
     let (txc, rxc) = crossbeam_channel::bounded::<String>(1);
     #[cfg(feature = "channels-console")]
-    let (txc, rxc) = channels_console::instrument!((txc, rxc), label = "hello-there", capacity = 1);
+    let (txc, rxc) = channels_console::channel!((txc, rxc), label = "hello-there", capacity = 1);
 
     let sender_handle = std::thread::spawn(move || {
         for i in 1..=3 {

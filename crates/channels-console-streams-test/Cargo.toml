@@ -1,0 +1,18 @@
+[package]
+name = "channels-console-streams-test"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[dependencies]
+channels-console = { workspace = true, optional = true, features = ["futures"] }
+futures-util = "0.3"
+smol = "2.0"
+
+[dev-dependencies]
+channels-console = { workspace = true }
+ureq = "2.10"
+serde_json = "1.0"
+
+[features]
+channels-console = ["dep:channels-console"]

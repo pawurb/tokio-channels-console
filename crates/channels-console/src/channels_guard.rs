@@ -2,7 +2,10 @@ use std::time::Instant;
 
 use prettytable::{Cell, Row, Table};
 
-use crate::{format_bytes, get_metrics_json, get_sorted_channel_stats, resolve_label, Format};
+use crate::{
+    format_bytes, get_combined_json, get_sorted_stats, resolve_label, Format, InstrumentedType,
+    Stats,
+};
 
 /// Builder for creating a ChannelsGuard with custom configuration.
 ///
@@ -116,60 +119,106 @@ impl Default for ChannelsGuard {
 impl Drop for ChannelsGuard {
     fn drop(&mut self) {
         let elapsed = self.start_time.elapsed();
-        let stats = get_sorted_channel_stats();
+        let stats = get_sorted_stats();
 
         if stats.is_empty() {
-            println!("\nNo instrumented channels found.");
+            println!("\nNo instrumented channels or streams found.");
             return;
         }
 
         match self.format {
             Format::Table => {
-                let mut table = Table::new();
+                // Separate channels and streams
+                let mut channels = Vec::new();
+                let mut streams = Vec::new();
 
-                table.add_row(Row::new(vec![
-                    Cell::new("Channel"),
-                    Cell::new("Type"),
-                    Cell::new("State"),
-                    Cell::new("Sent"),
-                    Cell::new("Received"),
-                    Cell::new("Queued"),
-                    Cell::new("Mem"),
-                ]));
-
-                for channel_stats in stats {
-                    let label = resolve_label(
-                        channel_stats.source,
-                        channel_stats.label.as_deref(),
-                        channel_stats.iter,
-                    );
-                    table.add_row(Row::new(vec![
-                        Cell::new(&label),
-                        Cell::new(&channel_stats.channel_type.to_string()),
-                        Cell::new(channel_stats.state.as_str()),
-                        Cell::new(&channel_stats.sent_count.to_string()),
-                        Cell::new(&channel_stats.received_count.to_string()),
-                        Cell::new(&channel_stats.queued().to_string()),
-                        Cell::new(&format_bytes(channel_stats.queued_bytes())),
-                    ]));
+                for stat in stats {
+                    match stat {
+                        Stats::Channel(cs) => channels.push(cs),
+                        Stats::Stream(ss) => streams.push(ss),
+                    }
                 }
 
                 println!(
-                    "\n=== Channel Statistics (runtime: {:.2}s) ===",
+                    "\n=== Statistics (runtime: {:.2}s) ===",
                     elapsed.as_secs_f64()
                 );
-                table.printstd();
+
+                // Display channels table if there are any
+                if !channels.is_empty() {
+                    let mut table = Table::new();
+
+                    table.add_row(Row::new(vec![
+                        Cell::new("Channel"),
+                        Cell::new("Type"),
+                        Cell::new("State"),
+                        Cell::new("Sent"),
+                        Cell::new("Received"),
+                        Cell::new("Queued"),
+                        Cell::new("Mem"),
+                    ]));
+
+                    for channel_stats in channels {
+                        let label = resolve_label(
+                            channel_stats.source,
+                            channel_stats.label.as_deref(),
+                            channel_stats.iter,
+                        );
+                        let instrumented_type = InstrumentedType::Channel {
+                            channel_type: channel_stats.channel_type,
+                        };
+                        table.add_row(Row::new(vec![
+                            Cell::new(&label),
+                            Cell::new(&instrumented_type.to_string()),
+                            Cell::new(channel_stats.state.as_str()),
+                            Cell::new(&channel_stats.sent_count.to_string()),
+                            Cell::new(&channel_stats.received_count.to_string()),
+                            Cell::new(&channel_stats.queued().to_string()),
+                            Cell::new(&format_bytes(channel_stats.queued_bytes())),
+                        ]));
+                    }
+
+                    println!("\nChannels:");
+                    table.printstd();
+                }
+
+                // Display streams table if there are any
+                if !streams.is_empty() {
+                    let mut table = Table::new();
+
+                    table.add_row(Row::new(vec![
+                        Cell::new("Stream"),
+                        Cell::new("State"),
+                        Cell::new("Yielded"),
+                    ]));
+
+                    for stream_stats in streams {
+                        let label = resolve_label(
+                            stream_stats.source,
+                            stream_stats.label.as_deref(),
+                            stream_stats.iter,
+                        );
+                        table.add_row(Row::new(vec![
+                            Cell::new(&label),
+                            Cell::new(stream_stats.state.as_str()),
+                            Cell::new(&stream_stats.items_yielded.to_string()),
+                        ]));
+                    }
+
+                    println!("\nStreams:");
+                    table.printstd();
+                }
             }
             Format::Json => {
-                let metrics = get_metrics_json();
-                match serde_json::to_string(&metrics) {
+                let combined = get_combined_json();
+                match serde_json::to_string(&combined) {
                     Ok(json) => println!("{}", json),
                     Err(e) => eprintln!("Failed to serialize statistics to JSON: {}", e),
                 }
             }
             Format::JsonPretty => {
-                let metrics = get_metrics_json();
-                match serde_json::to_string_pretty(&metrics) {
+                let combined = get_combined_json();
+                match serde_json::to_string_pretty(&combined) {
                     Ok(json) => println!("{}", json),
                     Err(e) => eprintln!("Failed to serialize statistics to pretty JSON: {}", e),
                 }

@@ -13,7 +13,7 @@ fn main() {
         let (tx, rx) = crossbeam_channel::unbounded::<i32>();
 
         #[cfg(feature = "channels-console")]
-        let (tx, rx) = channels_console::instrument!((tx, rx));
+        let (tx, rx) = channels_console::channel!((tx, rx));
 
         println!("  - Created unbounded channel {}", i);
 
@@ -29,7 +29,7 @@ fn main() {
         let (tx, rx) = crossbeam_channel::bounded::<i32>(10);
 
         #[cfg(feature = "channels-console")]
-        let (tx, rx) = channels_console::instrument!((tx, rx), capacity = 10, label = "bounded");
+        let (tx, rx) = channels_console::channel!((tx, rx), capacity = 10, label = "bounded");
 
         println!("  - Created bounded channel {}", i);
 

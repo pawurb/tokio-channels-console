@@ -8,11 +8,11 @@ fn main() {
 
     let (txa, rxa) = std::sync::mpsc::channel::<i32>();
     #[cfg(feature = "channels-console")]
-    let (txa, rxa) = channels_console::instrument!((txa, rxa), label = "unbounded");
+    let (txa, rxa) = channels_console::channel!((txa, rxa), label = "unbounded");
 
     let (txb, rxb) = std::sync::mpsc::sync_channel::<i32>(10);
     #[cfg(feature = "channels-console")]
-    let (txb, rxb) = channels_console::instrument!((txb, rxb), label = "bounded", capacity = 10);
+    let (txb, rxb) = channels_console::channel!((txb, rxb), label = "bounded", capacity = 10);
 
     println!("[Unbounded] Sending 3 messages...");
     for i in 1..=3 {

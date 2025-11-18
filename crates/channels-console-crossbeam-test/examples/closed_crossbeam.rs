@@ -5,17 +5,16 @@ fn main() {
 
     let (tx1, rx1) = crossbeam_channel::bounded::<i32>(5);
     #[cfg(feature = "channels-console")]
-    let (tx1, rx1) =
-        channels_console::instrument!((tx1, rx1), label = "closed-sender", capacity = 5);
+    let (tx1, rx1) = channels_console::channel!((tx1, rx1), label = "closed-sender", capacity = 5);
 
     let (tx2, rx2) = crossbeam_channel::bounded::<i32>(5);
     #[cfg(feature = "channels-console")]
     let (tx2, rx2) =
-        channels_console::instrument!((tx2, rx2), label = "closed-receiver", capacity = 5);
+        channels_console::channel!((tx2, rx2), label = "closed-receiver", capacity = 5);
 
     let (tx3, rx3) = crossbeam_channel::unbounded::<i32>();
     #[cfg(feature = "channels-console")]
-    let (tx3, rx3) = channels_console::instrument!((tx3, rx3), label = "closed-unbounded");
+    let (tx3, rx3) = channels_console::channel!((tx3, rx3), label = "closed-unbounded");
 
     drop(tx1);
 

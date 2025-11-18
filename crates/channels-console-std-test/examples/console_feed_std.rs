@@ -14,12 +14,12 @@ fn main() {
     let (tx_fast, rx_fast) = std::sync::mpsc::channel::<String>();
     #[cfg(feature = "channels-console")]
     let (tx_fast, rx_fast) =
-        channels_console::instrument!((tx_fast, rx_fast), label = "fast-stream", log = true);
+        channels_console::channel!((tx_fast, rx_fast), label = "fast-stream", log = true);
 
     // Channel 2: Slow consumer - bounded(5), will back up!
     let (tx_slow, rx_slow) = std::sync::mpsc::sync_channel::<String>(5);
     #[cfg(feature = "channels-console")]
-    let (tx_slow, rx_slow) = channels_console::instrument!(
+    let (tx_slow, rx_slow) = channels_console::channel!(
         (tx_slow, rx_slow),
         label = "slow-consumer",
         capacity = 5,
@@ -29,7 +29,7 @@ fn main() {
     // Channel 3: Burst traffic - bounded(10), bursts every 3 seconds
     let (tx_burst, rx_burst) = std::sync::mpsc::sync_channel::<u64>(10);
     #[cfg(feature = "channels-console")]
-    let (tx_burst, rx_burst) = channels_console::instrument!(
+    let (tx_burst, rx_burst) = channels_console::channel!(
         (tx_burst, rx_burst),
         label = "burst-traffic",
         capacity = 10,
@@ -39,7 +39,7 @@ fn main() {
     // Channel 4: Gradual flow - bounded(20), increasing rate
     let (tx_gradual, rx_gradual) = std::sync::mpsc::sync_channel::<f64>(20);
     #[cfg(feature = "channels-console")]
-    let (tx_gradual, rx_gradual) = channels_console::instrument!(
+    let (tx_gradual, rx_gradual) = channels_console::channel!(
         (tx_gradual, rx_gradual),
         label = "gradual-flow",
         capacity = 20,
@@ -49,7 +49,7 @@ fn main() {
     // Channel 5: Dropped early - unbounded, producer dies at 10s
     let (tx_drop_early, rx_drop_early) = std::sync::mpsc::channel::<bool>();
     #[cfg(feature = "channels-console")]
-    let (tx_drop_early, rx_drop_early) = channels_console::instrument!(
+    let (tx_drop_early, rx_drop_early) = channels_console::channel!(
         (tx_drop_early, rx_drop_early),
         label = "dropped-early",
         log = true
@@ -58,7 +58,7 @@ fn main() {
     // Channel 6: Consumer dies - bounded(8), consumer stops at 15s
     let (tx_consumer_dies, rx_consumer_dies) = std::sync::mpsc::sync_channel::<Vec<u8>>(8);
     #[cfg(feature = "channels-console")]
-    let (tx_consumer_dies, rx_consumer_dies) = channels_console::instrument!(
+    let (tx_consumer_dies, rx_consumer_dies) = channels_console::channel!(
         (tx_consumer_dies, rx_consumer_dies),
         label = "consumer-dies",
         capacity = 8,
@@ -69,14 +69,14 @@ fn main() {
     let (tx_steady, rx_steady) = std::sync::mpsc::channel::<&str>();
     #[cfg(feature = "channels-console")]
     let (tx_steady, rx_steady) =
-        channels_console::instrument!((tx_steady, rx_steady), label = "steady-stream", log = true);
+        channels_console::channel!((tx_steady, rx_steady), label = "steady-stream", log = true);
 
     println!("Creating 3 bounded iter channels...");
     for i in 0..3 {
         let (tx, rx) = std::sync::mpsc::sync_channel::<u32>(5);
 
         #[cfg(feature = "channels-console")]
-        let (tx, rx) = channels_console::instrument!((tx, rx), capacity = 5);
+        let (tx, rx) = channels_console::channel!((tx, rx), capacity = 5);
 
         thread::spawn(move || {
             for j in 0..5 {

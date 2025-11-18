@@ -1,6 +1,7 @@
 use smol::Timer;
 use std::time::Duration;
 
+#[allow(dead_code)]
 struct Actor {
     name: String,
 }
@@ -8,7 +9,7 @@ struct Actor {
 #[allow(unused_mut)]
 fn main() {
     smol::block_on(async {
-        let actor1 = Actor {
+        let _actor1 = Actor {
             name: "Actor 1".to_string(),
         };
 
@@ -22,7 +23,7 @@ fn main() {
             let (tx, mut rx) = futures_channel::mpsc::unbounded::<i32>();
 
             #[cfg(feature = "channels-console")]
-            let (tx, mut rx) = channels_console::instrument!((tx, rx), label = actor1.name.clone());
+            let (tx, mut rx) = channels_console::channel!((tx, rx), label = actor1.name.clone());
 
             println!("  - Created unbounded channel {}", i);
 
@@ -39,7 +40,7 @@ fn main() {
 
             #[cfg(feature = "channels-console")]
             let (mut tx, mut rx) =
-                channels_console::instrument!((tx, rx), capacity = 10, label = "bounded");
+                channels_console::channel!((tx, rx), capacity = 10, label = "bounded");
 
             println!("  - Created bounded channel {}", i);
 
@@ -55,7 +56,7 @@ fn main() {
             let (tx, rx) = futures_channel::oneshot::channel::<String>();
 
             #[cfg(feature = "channels-console")]
-            let (tx, rx) = channels_console::instrument!((tx, rx));
+            let (tx, rx) = channels_console::channel!((tx, rx));
 
             println!("  - Created oneshot channel {}", i);
 
