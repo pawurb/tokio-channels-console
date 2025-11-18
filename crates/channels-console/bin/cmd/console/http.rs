@@ -8,6 +8,7 @@ pub(crate) fn fetch_channels(agent: &ureq::Agent, port: u16) -> Result<ChannelsJ
     Ok(channels)
 }
 
+#[allow(dead_code)]
 /// Fetches stream metrics from the HTTP server
 pub(crate) fn fetch_streams(agent: &ureq::Agent, port: u16) -> Result<StreamsJson> {
     let url = format!("http://127.0.0.1:{}/streams", port);
