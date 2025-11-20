@@ -1,6 +1,8 @@
 # channels-console 
 [![Latest Version](https://img.shields.io/crates/v/channels-console.svg)](https://crates.io/crates/channels-console) [![GH Actions](https://github.com/pawurb/channels-console/actions/workflows/ci.yml/badge.svg)](https://github.com/pawurb/channels-console/actions)
 
+**The codebase has been integrated into [hotpath](https://github.com/pawurb/hotpath). Further updates and enhancements will continue in the new repository.**
+
 ![Console TUI Example](channels-console-tui5.gif)
 
 A lightweight, easy-to-use tool for real-time visibility into your Rust channels and streams. Inspect live message contents and observe how channels interact to better understand data flow. Track queue depth, delay, throughput, and memory usage to spot channel-related issues.
